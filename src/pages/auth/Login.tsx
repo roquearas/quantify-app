@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { LogIn } from 'lucide-react'
+
+const STAFF_ROLES = ['ADMIN', 'MANAGER', 'ENGINEER', 'ESTIMATOR']
 
 export default function Login() {
   const { signIn } = useAuth()
@@ -17,10 +20,25 @@ export default function Login() {
     setError(null)
     setLoading(true)
     const { error } = await signIn(email, password)
+    if (error) { setLoading(false); setError(error); return }
+
+    // Após o signIn, busca role direto no DB para decidir destino
+    // (o contexto Auth pode ainda não ter hidratado o AppUser)
+    const { data: authData } = await supabase.auth.getUser()
+    let destination = '/app'
+    if (authData.user) {
+      const { data: appUser } = await supabase
+        .from('users')
+        .select('role')
+        .eq('auth_id', authData.user.id)
+        .maybeSingle()
+      const role = (appUser as { role?: string } | null)?.role
+      if (role && STAFF_ROLES.includes(role)) destination = '/admin'
+    }
+
     setLoading(false)
-    if (error) { setError(error); return }
-    const from = location.state?.from?.pathname || '/app'
-    navigate(from, { replace: true })
+    const from = location.state?.from?.pathname
+    navigate(from || destination, { replace: true })
   }
 
   return (

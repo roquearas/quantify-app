@@ -1,9 +1,9 @@
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, PlusCircle, ListChecks, LogOut } from 'lucide-react'
+import { LayoutDashboard, PlusCircle, ListChecks, LogOut, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 
 export default function ClientLayout() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, isStaff } = useAuth()
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -32,6 +32,15 @@ export default function ClientLayout() {
           <NavLink to="/app/solicitacoes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <ListChecks /> Minhas solicitações
           </NavLink>
+
+          {isStaff && (
+            <>
+              <div className="nav-section">Staff</div>
+              <NavLink to="/admin" className="nav-link nav-link-admin">
+                <ShieldCheck /> Painel admin
+              </NavLink>
+            </>
+          )}
         </nav>
         <div className="sidebar-user">
           {user && (
