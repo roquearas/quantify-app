@@ -7,7 +7,7 @@ import Composicoes from './pages/Composicoes'
 import Cotacoes from './pages/Cotacoes'
 import Parceiros from './pages/Parceiros'
 import Documentos from './pages/Documentos'
-import Placeholder from './pages/Placeholder'
+import Config from './pages/Config'
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
         <Route path="/cotacoes" element={<Cotacoes />} />
         <Route path="/parceiros" element={<Parceiros />} />
         <Route path="/documentos" element={<Documentos />} />
-        <Route path="/config" element={<Placeholder />} />
+        <Route path="/config" element={<Config />} />
       </Route>
     </Routes>
   )
