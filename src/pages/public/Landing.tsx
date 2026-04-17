@@ -16,12 +16,18 @@ interface Service {
   display_order: number
 }
 
+interface ServicePricingRow {
+  service_id: string
+  from_price_display: string | null
+}
+
 const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Ruler, Calculator, FileSpreadsheet, Package, TrendingUp, Gavel, FileText,
 }
 
 export default function Landing() {
   const [services, setServices] = useState<Service[]>([])
+  const [pricingBySlug, setPricingBySlug] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase
@@ -29,7 +35,22 @@ export default function Landing() {
       .select('*')
       .eq('is_active', true)
       .order('display_order')
-      .then(({ data }) => setServices((data as Service[]) || []))
+      .then(({ data }) => {
+        const list = (data as Service[]) || []
+        setServices(list)
+
+        // Carrega from_price_display de cada serviço
+        supabase.from('service_pricing').select('service_id, from_price_display')
+          .then(({ data: pr }) => {
+            const rows = (pr as ServicePricingRow[]) || []
+            const map: Record<string, string> = {}
+            for (const row of rows) {
+              const svc = list.find((s) => s.id === row.service_id)
+              if (svc && row.from_price_display) map[svc.slug] = row.from_price_display
+            }
+            setPricingBySlug(map)
+          })
+      })
   }, [])
 
   return (
@@ -101,7 +122,9 @@ export default function Landing() {
                 <div className="service-card-icon"><Icon size={22} /></div>
                 <h4>{s.name}</h4>
                 <p>{s.short_description}</p>
-                <div className="service-price">{s.price_unit}</div>
+                <div className="service-price">
+                  {pricingBySlug[s.slug] || s.price_unit}
+                </div>
                 <Link to={`/signup?servico=${s.slug}`} className="service-card-cta">
                   Solicitar <ArrowRight size={14} />
                 </Link>

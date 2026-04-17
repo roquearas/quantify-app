@@ -1,11 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import {
   Ruler, Calculator, FileSpreadsheet, Package, TrendingUp, Gavel, FileText,
-  ChevronLeft, ChevronRight, CheckCircle2, Send,
+  ChevronLeft, ChevronRight, CheckCircle2, Send, Sparkles, Clock,
+  Upload, X as XIcon, File as FileIcon,
 } from 'lucide-react'
+import {
+  estimatePrice, inferPorte, inferTipologia,
+  type ServicePricing, type Urgencia,
+} from '../../lib/pricingEngine'
 
 interface Service {
   id: string
@@ -30,6 +35,7 @@ export default function Solicitar() {
   const preselected = searchParams.get('servico')
 
   const [services, setServices] = useState<Service[]>([])
+  const [pricings, setPricings] = useState<Record<string, ServicePricing>>({})
   const [step, setStep] = useState<Step>(1)
   const [serviceId, setServiceId] = useState<string>('')
   const [title, setTitle] = useState('')
@@ -38,7 +44,9 @@ export default function Solicitar() {
   const [location, setLocation] = useState('')
   const [standard, setStandard] = useState('Médio')
   const [deadline, setDeadline] = useState('')
+  const [urgencia, setUrgencia] = useState<Urgencia>('normal')
   const [notes, setNotes] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [accept, setAccept] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,9 +61,28 @@ export default function Solicitar() {
           if (found) setServiceId(found.id)
         }
       })
+
+    supabase.from('service_pricing').select('*')
+      .then(({ data }) => {
+        const map: Record<string, ServicePricing> = {}
+        for (const row of (data ?? []) as ServicePricing[]) map[row.service_id] = row
+        setPricings(map)
+      })
   }, [preselected])
 
   const selectedService = services.find((s) => s.id === serviceId)
+  const selectedPricing = serviceId ? pricings[serviceId] : undefined
+
+  const estimate = useMemo(() => {
+    if (!selectedPricing) return null
+    const areaNum = area ? parseFloat(area) : 0
+    const porte = inferPorte(areaNum)
+    const tipologia = inferTipologia(typology)
+    // Quantidade: se a unidade é m², usa a área; senão usa 1 (unidade lote/projeto/proposta)
+    const unit = selectedPricing.unit.toLowerCase()
+    const quantity = unit.includes('m') && areaNum > 0 ? areaNum : 1
+    return estimatePrice({ pricing: selectedPricing, quantity, porte, urgencia, tipologia })
+  }, [selectedPricing, area, typology, urgencia])
 
   function next() {
     setError(null)
@@ -83,6 +110,7 @@ export default function Solicitar() {
       standard,
       deadline,
       priceUnit: selectedService?.price_unit || '',
+      estimate: estimate?.formatted.range || null,
     })
 
     const { data: req, error: rErr } = await supabase
@@ -123,6 +151,52 @@ export default function Solicitar() {
       note: 'Solicitação criada pelo cliente',
     })
 
+    // Upload de arquivos (pranchas/memoriais) — path: {company_id}/{request_id}/INPUT/{file}
+    if (files.length > 0) {
+      for (const file of files) {
+        const safeName = file.name.replace(/[^\w.\-]/g, '_')
+        const path = `${user.company_id}/${req.id}/INPUT/${Date.now()}-${safeName}`
+        const { error: upErr } = await supabase.storage
+          .from('request-files')
+          .upload(path, file, { cacheControl: '3600', upsert: false })
+        if (upErr) {
+          // falha de um arquivo não deve bloquear a solicitação inteira
+          // eslint-disable-next-line no-console
+          console.warn('upload falhou:', file.name, upErr.message)
+          continue
+        }
+        await supabase.from('request_files').insert({
+          request_id: req.id,
+          company_id: user.company_id,
+          uploaded_by: user.id,
+          kind: 'INPUT',
+          storage_path: path,
+          filename: file.name,
+          mime_type: file.type || 'application/octet-stream',
+          size_bytes: file.size,
+        })
+      }
+    }
+
+    // Cria uma proposta DRAFT pré-preenchida com a estimativa, para o engenheiro ajustar depois
+    if (estimate) {
+      await supabase.from('proposals').insert({
+        request_id: req.id,
+        company_id: user.company_id,
+        estimated_price: estimate.central,
+        final_price: null,
+        breakdown: {
+          porte: inferPorte(area ? parseFloat(area) : 0),
+          tipologia: inferTipologia(typology),
+          urgencia,
+          unit: estimate.unit,
+          ...estimate.breakdown,
+        },
+        scope: notes || null,
+        status: 'DRAFT',
+      })
+    }
+
     setSubmitting(false)
     navigate(`/app/solicitacoes/${req.id}`, { replace: true })
   }
@@ -159,6 +233,7 @@ export default function Solicitar() {
               {services.map((s) => {
                 const Icon = iconMap[s.icon] || Calculator
                 const selected = serviceId === s.id
+                const fromPrice = pricings[s.id]?.from_price_display
                 return (
                   <button
                     type="button"
@@ -170,7 +245,7 @@ export default function Solicitar() {
                     <div>
                       <h4>{s.name}</h4>
                       <p>{s.short_description}</p>
-                      <span className="service-price">{s.price_unit}</span>
+                      <span className="service-price">{fromPrice || s.price_unit}</span>
                     </div>
                   </button>
                 )
@@ -224,15 +299,112 @@ export default function Solicitar() {
         {step === 3 && (
           <>
             <h3>Observações e escopo adicional</h3>
+            <div className="wizard-grid">
+              <label>
+                <span>
+                  <Clock size={12} style={{ display: 'inline', marginRight: 4 }} />
+                  Urgência
+                </span>
+                <select value={urgencia} onChange={(e) => setUrgencia(e.target.value as Urgencia)}>
+                  <option value="normal">Normal (prazo padrão)</option>
+                  <option value="urgente">Urgente (+35%)</option>
+                  <option value="express">Express (+75%)</option>
+                </select>
+              </label>
+            </div>
             <label className="wizard-full">
-              <span>Descreva o escopo e envie pranchas posteriormente</span>
+              <span>Descreva o escopo</span>
               <textarea
-                rows={8}
+                rows={6}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Detalhe o escopo desejado, disciplinas, bases (SINAPI/SICRO/TCPO), etc."
               />
             </label>
+
+            <div className="wizard-full file-upload-block">
+              <span className="file-upload-label">
+                <Upload size={12} style={{ display: 'inline', marginRight: 4 }} />
+                Anexar pranchas e memoriais (opcional)
+              </span>
+              <label className="file-drop">
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.xls,.xlsx,.dwg,.zip,.csv,.txt"
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.files ?? [])
+                    setFiles((prev) => [...prev, ...selected])
+                    e.target.value = ''
+                  }}
+                />
+                <div className="file-drop-inner">
+                  <Upload size={16} />
+                  <span>Clique para anexar arquivos</span>
+                  <small>PDF, PNG, JPG, XLS, DWG, ZIP — até 100 MB cada</small>
+                </div>
+              </label>
+              {files.length > 0 && (
+                <ul className="file-list">
+                  {files.map((f, i) => (
+                    <li key={i}>
+                      <FileIcon size={12} />
+                      <span className="file-name">{f.name}</span>
+                      <span className="file-size">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                      <button
+                        type="button"
+                        className="file-remove"
+                        onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        aria-label="Remover"
+                      >
+                        <XIcon size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {estimate && selectedService && (
+              <div className="estimate-card">
+                <div className="estimate-header">
+                  <Sparkles size={16} />
+                  <strong>Estimativa preliminar</strong>
+                </div>
+                <div className="estimate-range">{estimate.formatted.range}</div>
+                <div className="estimate-detail">
+                  <span>Central indicativa:</span>
+                  <strong>{estimate.formatted.central}</strong>
+                </div>
+                <ul className="estimate-breakdown">
+                  <li>
+                    <span>Serviço</span>
+                    <strong>{selectedService.name}</strong>
+                  </li>
+                  <li>
+                    <span>Quantidade</span>
+                    <strong>{estimate.quantity.toLocaleString('pt-BR')} {estimate.unit}</strong>
+                  </li>
+                  <li>
+                    <span>Porte</span>
+                    <strong>{labelPorte(area)}</strong>
+                  </li>
+                  <li>
+                    <span>Tipologia</span>
+                    <strong>{typology}</strong>
+                  </li>
+                  <li>
+                    <span>Urgência</span>
+                    <strong>{urgenciaLabel(urgencia)}</strong>
+                  </li>
+                </ul>
+                <p className="estimate-note">
+                  Valor preliminar calculado com base em SINAPI/SICRO/TCPO + mercado 2026.
+                  O <strong>valor final será confirmado pelo engenheiro responsável</strong> após análise do escopo.
+                  Só cobramos após sua aprovação.
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -252,6 +424,7 @@ export default function Solicitar() {
   standard,
   deadline,
   priceUnit: selectedService.price_unit,
+  estimate: estimate?.formatted.range || null,
 })}
             </pre>
             <label className="wizard-check">
@@ -282,10 +455,24 @@ export default function Solicitar() {
   )
 }
 
+function urgenciaLabel(u: Urgencia): string {
+  if (u === 'urgente') return 'Urgente'
+  if (u === 'express') return 'Express'
+  return 'Normal'
+}
+
+function labelPorte(area: string): string {
+  const a = parseFloat(area)
+  if (!a || Number.isNaN(a)) return 'Médio'
+  if (a < 150) return 'Pequeno'
+  if (a > 1500) return 'Grande'
+  return 'Médio'
+}
+
 function buildContract(p: {
   client: string; company: string; service: string; title: string;
   typology: string; area: string; location: string; standard: string;
-  deadline: string; priceUnit: string
+  deadline: string; priceUnit: string; estimate: string | null
 }) {
   const today = new Date().toLocaleDateString('pt-BR')
   return `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ENGENHARIA
@@ -309,7 +496,13 @@ A Quantify utilizará ferramentas de IA para acelerar levantamentos, composiçõ
 Todo entregável é revisado e assinado por engenheiro responsável (ART/RRT).
 
 PREÇO
-${p.priceUnit}. O valor final será confirmado após análise do escopo detalhado.
+${p.priceUnit}.${p.estimate ? ` Estimativa preliminar: ${p.estimate}.` : ''}
+O valor final será confirmado pelo engenheiro responsável após análise do escopo detalhado.
+A cobrança só ocorre após o aceite do valor final pela CONTRATANTE, ao final do serviço.
+
+FORMA DE PAGAMENTO
+100% na entrega do serviço, mediante boleto/PIX/cartão (com opção de parcelamento).
+Cartão de crédito é capturado apenas após aceite do valor final; cobrança ocorre na entrega.
 
 PRAZOS E ENTREGÁVEIS
 Serão acordados na aceitação da proposta final.
