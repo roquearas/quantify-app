@@ -1,7 +1,8 @@
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FolderKanban, Calculator, FileSpreadsheet,
-  Users, Package, Settings, BookOpen, KanbanSquare, ShieldCheck, Terminal, LogOut
+  Users, Package, Settings, BookOpen, KanbanSquare, ShieldCheck, Terminal, LogOut,
+  FileSignature, CreditCard,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 
@@ -31,6 +32,12 @@ export default function Layout() {
           </NavLink>
           <NavLink to="/admin/kanban" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <KanbanSquare /> Kanban
+          </NavLink>
+          <NavLink to="/admin/propostas" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <FileSignature /> Propostas
+          </NavLink>
+          <NavLink to="/admin/cobrancas" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <CreditCard /> Cobranças
           </NavLink>
           <NavLink to="/admin/validacoes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <ShieldCheck /> Validações

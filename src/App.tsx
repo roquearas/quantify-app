@@ -11,11 +11,15 @@ import ClientDashboard from './pages/client/ClientDashboard'
 import Solicitar from './pages/client/Solicitar'
 import MinhasSolicitacoes from './pages/client/MinhasSolicitacoes'
 import SolicitacaoDetalhe from './pages/client/SolicitacaoDetalhe'
+import PropostaDetalhe from './pages/client/PropostaDetalhe'
+import Pagamento from './pages/client/Pagamento'
 
 // Admin
 import Layout from './components/Layout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminKanban from './pages/admin/AdminKanban'
+import AdminPropostas from './pages/admin/AdminPropostas'
+import AdminCobrancas from './pages/admin/AdminCobrancas'
 import AdminValidacoes from './pages/admin/AdminValidacoes'
 import AdminAgentLogs from './pages/admin/AdminAgentLogs'
 import Projetos from './pages/Projetos'
@@ -50,6 +54,8 @@ export default function App() {
         <Route path="solicitar" element={<Solicitar />} />
         <Route path="solicitacoes" element={<MinhasSolicitacoes />} />
         <Route path="solicitacoes/:id" element={<SolicitacaoDetalhe />} />
+        <Route path="propostas/:id" element={<PropostaDetalhe />} />
+        <Route path="propostas/:id/pagamento" element={<Pagamento />} />
       </Route>
 
       {/* Admin */}
@@ -63,6 +69,8 @@ export default function App() {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="kanban" element={<AdminKanban />} />
+        <Route path="propostas" element={<AdminPropostas />} />
+        <Route path="cobrancas" element={<AdminCobrancas />} />
         <Route path="validacoes" element={<AdminValidacoes />} />
         <Route path="agent-logs" element={<AdminAgentLogs />} />
         <Route path="solicitacoes/:id" element={<SolicitacaoDetalhe />} />
