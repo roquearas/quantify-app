@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { PlusCircle, ArrowRight } from 'lucide-react'
+import { PlusCircle, ArrowRight, FileSignature } from 'lucide-react'
+import { formatBRL } from '../../lib/pricingEngine'
 
 interface RequestRow {
   id: string
@@ -12,6 +13,12 @@ interface RequestRow {
   typology: string | null
   area_m2: number | null
   services: { name: string } | null
+}
+
+interface PendingProposal {
+  id: string
+  final_price: number | null
+  service_requests: { title: string; services: { name: string } | null } | null
 }
 
 const stageLabel: Record<string, string> = {
@@ -28,19 +35,29 @@ const stageClass: Record<string, string> = {
 export default function MinhasSolicitacoes() {
   const { user } = useAuth()
   const [rows, setRows] = useState<RequestRow[]>([])
+  const [pendingProposals, setPendingProposals] = useState<PendingProposal[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user) return
-    supabase
-      .from('service_requests')
-      .select('id, title, stage, created_at, typology, area_m2, services(name)')
-      .eq('company_id', user.company_id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setRows((data as unknown as RequestRow[]) || [])
-        setLoading(false)
-      })
+
+    Promise.all([
+      supabase
+        .from('service_requests')
+        .select('id, title, stage, created_at, typology, area_m2, services(name)')
+        .eq('company_id', user.company_id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('proposals')
+        .select('id, final_price, service_requests!inner(title, services(name))')
+        .eq('company_id', user.company_id)
+        .eq('status', 'SENT')
+        .order('sent_at', { ascending: false }),
+    ]).then(([reqs, props]) => {
+      setRows((reqs.data as unknown as RequestRow[]) || [])
+      setPendingProposals((props.data as unknown as PendingProposal[]) || [])
+      setLoading(false)
+    })
   }, [user])
 
   return (
@@ -54,6 +71,31 @@ export default function MinhasSolicitacoes() {
           <PlusCircle size={16} /> Nova solicitação
         </Link>
       </div>
+
+      {pendingProposals.length > 0 && (
+        <div className="pending-proposals-banner">
+          <div className="pending-proposals-icon"><FileSignature size={18} /></div>
+          <div className="pending-proposals-body">
+            <h4>Você tem {pendingProposals.length} proposta{pendingProposals.length > 1 ? 's' : ''} aguardando aceite</h4>
+            <ul>
+              {pendingProposals.map((p) => (
+                <li key={p.id}>
+                  <span>
+                    <strong>{p.service_requests?.title}</strong>
+                    {p.service_requests?.services?.name ? ` — ${p.service_requests.services.name}` : ''}
+                  </span>
+                  <span className="pending-proposals-price">
+                    {p.final_price != null ? formatBRL(Number(p.final_price)) : '—'}
+                  </span>
+                  <Link to={`/app/propostas/${p.id}`} className="btn btn-primary btn-sm">
+                    Revisar <ArrowRight size={12} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         {loading ? (
