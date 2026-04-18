@@ -8,9 +8,9 @@ interface RequestRow {
   title: string
   stage: string
   created_at: string
-  typology: string | null
-  area_m2: number | null
-  notes: string | null
+  project_type: string | null
+  total_area: number | null
+  description: string | null
   services: { name: string } | null
   companies: { name: string } | null
 }
@@ -23,7 +23,7 @@ export default function AdminValidacoes() {
   async function load() {
     const { data } = await supabase
       .from('service_requests')
-      .select('id, title, stage, created_at, typology, area_m2, notes, services(name), companies(name)')
+      .select('id, title, stage, created_at, project_type, total_area, description, services(name), companies(name)')
       .eq('stage', 'UNDER_REVIEW')
       .order('created_at', { ascending: true })
     setRows((data as unknown as RequestRow[]) || [])
@@ -34,8 +34,11 @@ export default function AdminValidacoes() {
   async function validate(id: string) {
     await supabase.from('service_requests').update({ stage: 'VALIDATED' }).eq('id', id)
     await supabase.from('request_stages').insert({
-      request_id: id, stage: 'VALIDATED',
-      note: `Validado por engenheiro ${user?.name || ''}`,
+      request_id: id,
+      from_stage: 'UNDER_REVIEW',
+      to_stage: 'VALIDATED',
+      actor_user_id: user?.id ?? null,
+      notes: `Validado por engenheiro ${user?.name || ''}`,
     })
     load()
   }
@@ -45,8 +48,11 @@ export default function AdminValidacoes() {
     if (!reason) return
     await supabase.from('service_requests').update({ stage: 'REJECTED' }).eq('id', id)
     await supabase.from('request_stages').insert({
-      request_id: id, stage: 'REJECTED',
-      note: `Rejeitado: ${reason}`,
+      request_id: id,
+      from_stage: 'UNDER_REVIEW',
+      to_stage: 'REJECTED',
+      actor_user_id: user?.id ?? null,
+      notes: `Rejeitado: ${reason}`,
     })
     load()
   }
@@ -78,10 +84,10 @@ export default function AdminValidacoes() {
               <dl className="detail-list">
                 <dt>Cliente</dt><dd>{r.companies?.name || '—'}</dd>
                 <dt>Serviço</dt><dd>{r.services?.name || '—'}</dd>
-                <dt>Tipologia</dt><dd>{r.typology || '—'}</dd>
-                <dt>Área</dt><dd>{r.area_m2 ? `${r.area_m2} m²` : '—'}</dd>
+                <dt>Tipologia</dt><dd>{r.project_type || '—'}</dd>
+                <dt>Área</dt><dd>{r.total_area ? `${r.total_area} m²` : '—'}</dd>
               </dl>
-              {r.notes && <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>{r.notes}</p>}
+              {r.description && <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>{r.description}</p>}
               <div className="validation-actions">
                 <button className="btn btn-outline" onClick={() => reject(r.id)}>
                   <XCircle size={14} /> Rejeitar

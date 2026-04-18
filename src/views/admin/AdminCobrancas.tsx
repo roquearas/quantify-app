@@ -28,7 +28,7 @@ interface PaymentRow {
     final_price: number | null
     service_requests: {
       title: string
-      companies: { name: string; email: string | null } | null
+      companies: { name: string } | null
       services: { name: string } | null
     } | null
   } | null
@@ -70,13 +70,13 @@ export default function AdminCobrancas() {
           final_price,
           service_requests!inner(
             title,
-            companies(name, email),
+            companies(name),
             services(name)
           )
         )
       `)
       .order('created_at', { ascending: false })
-    setRows((data as PaymentRow[]) || [])
+    setRows((data as unknown as PaymentRow[]) || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -91,7 +91,7 @@ export default function AdminCobrancas() {
     if (error) { setNotice({ type: 'err', msg: error.message }); return }
     const resp = data as { sent?: boolean; error?: string }
     if (resp?.error) { setNotice({ type: 'err', msg: resp.error }); return }
-    setNotice({ type: 'ok', msg: `Recibo reenviado para ${p.proposals?.service_requests?.companies?.email ?? 'cliente'}` })
+    setNotice({ type: 'ok', msg: `Recibo reenviado para ${p.proposals?.service_requests?.companies?.name ?? 'cliente'}` })
   }
 
   async function chargeNow(p: PaymentRow) {
@@ -189,7 +189,6 @@ export default function AdminCobrancas() {
                     </td>
                     <td>
                       <div>{sr?.companies?.name ?? '—'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sr?.companies?.email ?? '—'}</div>
                     </td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

@@ -8,27 +8,28 @@ import { ChevronLeft, CircleCheck, Clock3 } from 'lucide-react'
 
 interface Stage {
   id: string
-  stage: string
-  note: string | null
+  from_stage: string | null
+  to_stage: string
+  notes: string | null
   created_at: string
 }
 interface Request {
   id: string
   title: string
   stage: string
-  typology: string | null
-  area_m2: number | null
-  location: string | null
+  project_type: string | null
+  total_area: number | null
+  city: string | null
   standard: string | null
   deadline: string | null
-  notes: string | null
+  description: string | null
   created_at: string
   services: { name: string } | null
 }
 interface Contract {
   id: string
-  content: string
-  accepted_at: string | null
+  html_content: string | null
+  signed_at: string | null
 }
 
 const stageLabel: Record<string, string> = {
@@ -54,8 +55,8 @@ export default function SolicitacaoDetalhe() {
       supabase.from('contracts').select('*').eq('request_id', id).maybeSingle(),
     ]).then(([r, s, c]) => {
       setReq((r.data as unknown as Request) || null)
-      setStages((s.data as Stage[]) || [])
-      setContract((c.data as Contract) || null)
+      setStages((s.data as unknown as Stage[]) || [])
+      setContract((c.data as unknown as Contract) || null)
       setLoading(false)
     })
   }, [id])
@@ -81,16 +82,16 @@ export default function SolicitacaoDetalhe() {
         <div className="card">
           <div className="card-header"><h3>Dados do projeto</h3></div>
           <dl className="detail-list">
-            <dt>Tipologia</dt><dd>{req.typology || '—'}</dd>
-            <dt>Área</dt><dd>{req.area_m2 ? `${req.area_m2} m²` : '—'}</dd>
-            <dt>Localização</dt><dd>{req.location || '—'}</dd>
+            <dt>Tipologia</dt><dd>{req.project_type || '—'}</dd>
+            <dt>Área</dt><dd>{req.total_area ? `${req.total_area} m²` : '—'}</dd>
+            <dt>Localização</dt><dd>{req.city || '—'}</dd>
             <dt>Padrão</dt><dd>{req.standard || '—'}</dd>
             <dt>Prazo desejado</dt><dd>{req.deadline ? new Date(req.deadline).toLocaleDateString('pt-BR') : '—'}</dd>
           </dl>
-          {req.notes && (
+          {req.description && (
             <>
               <h4 style={{ marginTop: 12, fontSize: 13 }}>Observações</h4>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>{req.notes}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>{req.description}</p>
             </>
           )}
         </div>
@@ -114,9 +115,9 @@ export default function SolicitacaoDetalhe() {
               <ul className="history-list">
                 {stages.map((s) => (
                   <li key={s.id}>
-                    <strong>{stageLabel[s.stage] || s.stage}</strong>
+                    <strong>{stageLabel[s.to_stage] || s.to_stage}</strong>
                     <span>{new Date(s.created_at).toLocaleString('pt-BR')}</span>
-                    {s.note && <p>{s.note}</p>}
+                    {s.notes && <p>{s.notes}</p>}
                   </li>
                 ))}
               </ul>
@@ -129,11 +130,11 @@ export default function SolicitacaoDetalhe() {
         <div className="card">
           <div className="card-header">
             <h3>Contrato</h3>
-            {contract.accepted_at && (
-              <span className="badge badge-validated">Aceito em {new Date(contract.accepted_at).toLocaleDateString('pt-BR')}</span>
+            {contract.signed_at && (
+              <span className="badge badge-validated">Aceito em {new Date(contract.signed_at).toLocaleDateString('pt-BR')}</span>
             )}
           </div>
-          <pre className="contract-preview">{contract.content}</pre>
+          <pre className="contract-preview">{contract.html_content}</pre>
         </div>
       )}
     </>

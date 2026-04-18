@@ -31,9 +31,9 @@ interface ProposalFull {
   service_requests: {
     id: string
     title: string
-    typology: string | null
-    area_m2: number | null
-    location: string | null
+    project_type: string | null
+    total_area: number | null
+    city: string | null
     services: { name: string } | null
   } | null
 }
@@ -56,7 +56,7 @@ export default function PropostaDetalhe() {
       .select(`
         *,
         service_requests!inner(
-          id, title, typology, area_m2, location,
+          id, title, project_type, total_area, city,
           services(name)
         )
       `)
@@ -71,6 +71,10 @@ export default function PropostaDetalhe() {
 
   async function acceptAndProceed() {
     if (!proposal || !user) return
+    if (proposal.final_price == null) {
+      setError('Proposta sem valor final definido.')
+      return
+    }
     setProcessing(true)
 
     // 1) Marca a proposta como aceita (RLS permite ao cliente da mesma company)
@@ -94,7 +98,7 @@ export default function PropostaDetalhe() {
         company_id: proposal.company_id,
         amount: proposal.final_price,
         method,
-        installments: method === 'CARD' ? installments : 1,
+        installments: method === 'CARD' ? installments : null,
         status: 'PENDING',
       })
       .select()
@@ -109,9 +113,10 @@ export default function PropostaDetalhe() {
     // 3) Registra no timeline da solicitação
     await supabase.from('request_stages').insert({
       request_id: proposal.request_id,
-      stage: 'ACCEPTED',
-      note: `Proposta aceita pelo cliente. Método: ${method}${method === 'CARD' ? ` (${installments}x)` : ''}`,
-      actor_id: user.id,
+      from_stage: 'SENT',
+      to_stage: 'ACCEPTED',
+      actor_user_id: user.id,
+      notes: `Proposta aceita pelo cliente. Método: ${method}${method === 'CARD' ? ` (${installments}x)` : ''}`,
     })
 
     // 4) Navega para a página de pagamento (a criação real de SetupIntent / QR acontece no Edge Function — B9/B10)
@@ -172,9 +177,9 @@ export default function PropostaDetalhe() {
                 <strong>{req?.title ?? 'Solicitação'}</strong>
               </div>
               <div className="proposal-sub">
-                {req?.services?.name ?? '—'} · {req?.typology ?? '—'}
-                {req?.area_m2 ? ` · ${req.area_m2} m²` : ''}
-                {req?.location ? ` · ${req.location}` : ''}
+                {req?.services?.name ?? '—'} · {req?.project_type ?? '—'}
+                {req?.total_area ? ` · ${req.total_area} m²` : ''}
+                {req?.city ? ` · ${req.city}` : ''}
               </div>
             </div>
             <span className={`badge ${proposal.status === 'SENT' ? 'badge-info' : proposal.status === 'ACCEPTED' ? 'badge-success' : 'badge-neutral'}`}>

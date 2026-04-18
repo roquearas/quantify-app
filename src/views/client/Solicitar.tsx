@@ -115,19 +115,21 @@ export default function Solicitar() {
       estimate: estimate?.formatted.range || null,
     })
 
+    const requestCode = `SR-${Date.now().toString(36).toUpperCase()}`
     const { data: req, error: rErr } = await supabase
       .from('service_requests')
       .insert({
+        code: requestCode,
         company_id: user.company_id,
         service_id: serviceId,
-        requested_by: user.id,
+        requester_user_id: user.id,
         title,
-        typology,
-        area_m2: area ? parseFloat(area) : null,
-        location: location || null,
+        project_type: typology,
+        total_area: area ? parseFloat(area) : null,
+        city: location || null,
         standard,
         deadline: deadline || null,
-        notes: notes || null,
+        description: notes || null,
         stage: 'RECEIVED',
       })
       .select()
@@ -139,18 +141,26 @@ export default function Solicitar() {
       return
     }
 
+    const contractCode = `CT-${Date.now().toString(36).toUpperCase()}`
     await supabase.from('contracts').insert({
       request_id: req.id,
-      company_id: user.company_id,
-      content: contractText,
-      accepted_at: new Date().toISOString(),
-      accepted_by: user.id,
+      code: contractCode,
+      client_company_id: user.company_id,
+      provider_company: 'Quantify Engenharia Ltda.',
+      scope: selectedService?.name || title,
+      total_amount: estimate?.central ?? 0,
+      html_content: contractText,
+      signed_at: new Date().toISOString(),
+      signed_by_client_name: user.name,
+      status: 'SIGNED',
     })
 
     await supabase.from('request_stages').insert({
       request_id: req.id,
-      stage: 'RECEIVED',
-      note: 'Solicitação criada pelo cliente',
+      from_stage: null,
+      to_stage: 'RECEIVED',
+      actor_user_id: user.id,
+      notes: 'Solicitação criada pelo cliente',
     })
 
     // Upload de arquivos (pranchas/memoriais) — path: {company_id}/{request_id}/INPUT/{file}
