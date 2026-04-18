@@ -34,8 +34,11 @@ export default function AdminValidacoes() {
   async function validate(id: string) {
     await supabase.from('service_requests').update({ stage: 'VALIDATED' }).eq('id', id)
     await supabase.from('request_stages').insert({
-      request_id: id, stage: 'VALIDATED',
-      note: `Validado por engenheiro ${user?.name || ''}`,
+      request_id: id,
+      from_stage: 'UNDER_REVIEW',
+      to_stage: 'VALIDATED',
+      actor_user_id: user?.id ?? null,
+      notes: `Validado por engenheiro ${user?.name || ''}`,
     })
     load()
   }
@@ -45,8 +48,11 @@ export default function AdminValidacoes() {
     if (!reason) return
     await supabase.from('service_requests').update({ stage: 'REJECTED' }).eq('id', id)
     await supabase.from('request_stages').insert({
-      request_id: id, stage: 'REJECTED',
-      note: `Rejeitado: ${reason}`,
+      request_id: id,
+      from_stage: 'UNDER_REVIEW',
+      to_stage: 'REJECTED',
+      actor_user_id: user?.id ?? null,
+      notes: `Rejeitado: ${reason}`,
     })
     load()
   }

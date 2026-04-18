@@ -56,7 +56,7 @@ interface RequestRow {
 
 interface AgentLog {
   id: string
-  agent: string
+  agent_name: string
   action: string
   status: string
   created_at: string
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
       })
       setFocus((focusList.data as unknown as RequestRow[]) || [])
       setDeadlines((deadlineList.data as unknown as RequestRow[]) || [])
-      setRecentAgents((agRecent.data as AgentLog[]) || [])
+      setRecentAgents((agRecent.data as unknown as AgentLog[]) || [])
       setStageFlow(flowData)
       setLoading(false)
     }
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                   <td style={{ fontFamily: 'monospace', fontSize: 11 }}>
                     {new Date(l.created_at).toLocaleString('pt-BR')}
                   </td>
-                  <td style={{ fontWeight: 600 }}>{l.agent}</td>
+                  <td style={{ fontWeight: 600 }}>{l.agent_name}</td>
                   <td>{l.action}</td>
                   <td>
                     <span className={`badge ${

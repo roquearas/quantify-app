@@ -31,7 +31,7 @@ interface Proposal {
   service_requests: {
     id: string
     title: string
-    typology: string | null
+    project_type: string | null
     area_m2: number | null
     location: string | null
     standard: string | null
@@ -81,13 +81,13 @@ export default function AdminPropostas() {
       .select(`
         *,
         service_requests!inner(
-          id, title, typology, area_m2, location, standard, deadline,
+          id, title, project_type, area_m2, location, standard, deadline,
           services(name, slug),
           companies(name)
         )
       `)
       .order('created_at', { ascending: false })
-    setProposals((data as Proposal[]) || [])
+    setProposals((data as unknown as Proposal[]) || [])
     setLoading(false)
   }
 
@@ -140,9 +140,10 @@ export default function AdminPropostas() {
         await supabase.from('service_requests').update({ stage: 'UNDER_REVIEW' }).eq('id', p.request_id)
         await supabase.from('request_stages').insert({
           request_id: p.request_id,
-          stage: 'UNDER_REVIEW',
-          note: 'Proposta enviada ao cliente',
-          actor_id: user?.id ?? null,
+          from_stage: stage as 'RECEIVED' | 'QUOTING' | 'COMPOSING',
+          to_stage: 'UNDER_REVIEW',
+          actor_user_id: user?.id ?? null,
+          notes: 'Proposta enviada ao cliente',
         })
       }
     }
@@ -239,7 +240,7 @@ export default function AdminPropostas() {
                     <span className={STATUS_CLASS[p.status]}>{STATUS_LABEL[p.status]}</span>
                   </div>
                   <div className="proposal-sub">
-                    {req?.services?.name ?? '—'} · {req?.companies?.name ?? '—'} · {req?.typology ?? '—'}
+                    {req?.services?.name ?? '—'} · {req?.companies?.name ?? '—'} · {req?.project_type ?? '—'}
                     {req?.area_m2 ? ` · ${req.area_m2} m²` : ''}
                     {req?.location ? ` · ${req.location}` : ''}
                   </div>

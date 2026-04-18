@@ -8,8 +8,9 @@ import { ChevronLeft, CircleCheck, Clock3 } from 'lucide-react'
 
 interface Stage {
   id: string
-  stage: string
-  note: string | null
+  from_stage: string | null
+  to_stage: string
+  notes: string | null
   created_at: string
 }
 interface Request {
@@ -27,8 +28,8 @@ interface Request {
 }
 interface Contract {
   id: string
-  content: string
-  accepted_at: string | null
+  html_content: string | null
+  signed_at: string | null
 }
 
 const stageLabel: Record<string, string> = {
@@ -54,8 +55,8 @@ export default function SolicitacaoDetalhe() {
       supabase.from('contracts').select('*').eq('request_id', id).maybeSingle(),
     ]).then(([r, s, c]) => {
       setReq((r.data as unknown as Request) || null)
-      setStages((s.data as Stage[]) || [])
-      setContract((c.data as Contract) || null)
+      setStages((s.data as unknown as Stage[]) || [])
+      setContract((c.data as unknown as Contract) || null)
       setLoading(false)
     })
   }, [id])
@@ -114,9 +115,9 @@ export default function SolicitacaoDetalhe() {
               <ul className="history-list">
                 {stages.map((s) => (
                   <li key={s.id}>
-                    <strong>{stageLabel[s.stage] || s.stage}</strong>
+                    <strong>{stageLabel[s.to_stage] || s.to_stage}</strong>
                     <span>{new Date(s.created_at).toLocaleString('pt-BR')}</span>
-                    {s.note && <p>{s.note}</p>}
+                    {s.notes && <p>{s.notes}</p>}
                   </li>
                 ))}
               </ul>
@@ -129,11 +130,11 @@ export default function SolicitacaoDetalhe() {
         <div className="card">
           <div className="card-header">
             <h3>Contrato</h3>
-            {contract.accepted_at && (
-              <span className="badge badge-validated">Aceito em {new Date(contract.accepted_at).toLocaleDateString('pt-BR')}</span>
+            {contract.signed_at && (
+              <span className="badge badge-validated">Aceito em {new Date(contract.signed_at).toLocaleDateString('pt-BR')}</span>
             )}
           </div>
-          <pre className="contract-preview">{contract.content}</pre>
+          <pre className="contract-preview">{contract.html_content}</pre>
         </div>
       )}
     </>

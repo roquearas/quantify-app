@@ -8,7 +8,7 @@ interface Partner {
   cnpj: string | null
   email: string | null
   phone: string | null
-  specialties: string[]
+  specialties: string[] | null
   is_global: boolean
   rating: number | null
   created_at: string

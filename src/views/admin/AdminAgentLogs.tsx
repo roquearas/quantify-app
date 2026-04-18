@@ -3,10 +3,9 @@ import { supabase } from '../../lib/supabase'
 
 interface Log {
   id: string
-  agent: string
+  agent_name: string
   action: string
   status: string
-  payload: unknown
   request_id: string | null
   created_at: string
 }
@@ -26,13 +25,13 @@ export default function AdminAgentLogs() {
   useEffect(() => {
     supabase.from('agent_logs').select('*').order('created_at', { ascending: false }).limit(200)
       .then(({ data }) => {
-        setLogs((data as Log[]) || [])
+        setLogs((data as unknown as Log[]) || [])
         setLoading(false)
       })
   }, [])
 
   const filtered = filter
-    ? logs.filter((l) => l.agent.toLowerCase().includes(filter.toLowerCase()) || l.action.toLowerCase().includes(filter.toLowerCase()))
+    ? logs.filter((l) => l.agent_name.toLowerCase().includes(filter.toLowerCase()) || l.action.toLowerCase().includes(filter.toLowerCase()))
     : logs
 
   return (
@@ -71,7 +70,7 @@ export default function AdminAgentLogs() {
                   <td style={{ fontFamily: 'monospace', fontSize: 11 }}>
                     {new Date(l.created_at).toLocaleString('pt-BR')}
                   </td>
-                  <td style={{ fontWeight: 600 }}>{l.agent}</td>
+                  <td style={{ fontWeight: 600 }}>{l.agent_name}</td>
                   <td>{l.action}</td>
                   <td><span className={`badge ${statusClass[l.status] || ''}`}>{l.status}</span></td>
                   <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{l.request_id?.slice(0, 8) || '—'}</td>
