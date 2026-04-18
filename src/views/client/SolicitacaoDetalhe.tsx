@@ -17,12 +17,12 @@ interface Request {
   id: string
   title: string
   stage: string
-  typology: string | null
-  area_m2: number | null
-  location: string | null
+  project_type: string | null
+  total_area: number | null
+  city: string | null
   standard: string | null
   deadline: string | null
-  notes: string | null
+  description: string | null
   created_at: string
   services: { name: string } | null
 }
@@ -82,16 +82,16 @@ export default function SolicitacaoDetalhe() {
         <div className="card">
           <div className="card-header"><h3>Dados do projeto</h3></div>
           <dl className="detail-list">
-            <dt>Tipologia</dt><dd>{req.typology || '—'}</dd>
-            <dt>Área</dt><dd>{req.area_m2 ? `${req.area_m2} m²` : '—'}</dd>
-            <dt>Localização</dt><dd>{req.location || '—'}</dd>
+            <dt>Tipologia</dt><dd>{req.project_type || '—'}</dd>
+            <dt>Área</dt><dd>{req.total_area ? `${req.total_area} m²` : '—'}</dd>
+            <dt>Localização</dt><dd>{req.city || '—'}</dd>
             <dt>Padrão</dt><dd>{req.standard || '—'}</dd>
             <dt>Prazo desejado</dt><dd>{req.deadline ? new Date(req.deadline).toLocaleDateString('pt-BR') : '—'}</dd>
           </dl>
-          {req.notes && (
+          {req.description && (
             <>
               <h4 style={{ marginTop: 12, fontSize: 13 }}>Observações</h4>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>{req.notes}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>{req.description}</p>
             </>
           )}
         </div>

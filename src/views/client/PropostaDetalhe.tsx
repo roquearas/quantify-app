@@ -31,9 +31,9 @@ interface ProposalFull {
   service_requests: {
     id: string
     title: string
-    typology: string | null
-    area_m2: number | null
-    location: string | null
+    project_type: string | null
+    total_area: number | null
+    city: string | null
     services: { name: string } | null
   } | null
 }
@@ -56,7 +56,7 @@ export default function PropostaDetalhe() {
       .select(`
         *,
         service_requests!inner(
-          id, title, typology, area_m2, location,
+          id, title, project_type, total_area, city,
           services(name)
         )
       `)
@@ -177,9 +177,9 @@ export default function PropostaDetalhe() {
                 <strong>{req?.title ?? 'Solicitação'}</strong>
               </div>
               <div className="proposal-sub">
-                {req?.services?.name ?? '—'} · {req?.typology ?? '—'}
-                {req?.area_m2 ? ` · ${req.area_m2} m²` : ''}
-                {req?.location ? ` · ${req.location}` : ''}
+                {req?.services?.name ?? '—'} · {req?.project_type ?? '—'}
+                {req?.total_area ? ` · ${req.total_area} m²` : ''}
+                {req?.city ? ` · ${req.city}` : ''}
               </div>
             </div>
             <span className={`badge ${proposal.status === 'SENT' ? 'badge-info' : proposal.status === 'ACCEPTED' ? 'badge-success' : 'badge-neutral'}`}>
