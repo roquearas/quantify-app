@@ -1,0 +1,194 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/admin/solicitacoes/[id]",
+      "regex": "^/admin/solicitacoes/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/solicitacoes/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/app/propostas/[id]",
+      "regex": "^/app/propostas/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/app/propostas/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/app/propostas/[id]/pagamento",
+      "regex": "^/app/propostas/([^/]+?)/pagamento(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/app/propostas/(?<nxtPid>[^/]+?)/pagamento(?:/)?$"
+    },
+    {
+      "page": "/app/solicitacoes/[id]",
+      "regex": "^/app/solicitacoes/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/app/solicitacoes/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/agent-logs",
+      "regex": "^/admin/agent\\-logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/agent\\-logs(?:/)?$"
+    },
+    {
+      "page": "/admin/cobrancas",
+      "regex": "^/admin/cobrancas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cobrancas(?:/)?$"
+    },
+    {
+      "page": "/admin/composicoes",
+      "regex": "^/admin/composicoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/composicoes(?:/)?$"
+    },
+    {
+      "page": "/admin/config",
+      "regex": "^/admin/config(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/config(?:/)?$"
+    },
+    {
+      "page": "/admin/cotacoes",
+      "regex": "^/admin/cotacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/cotacoes(?:/)?$"
+    },
+    {
+      "page": "/admin/documentos",
+      "regex": "^/admin/documentos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/documentos(?:/)?$"
+    },
+    {
+      "page": "/admin/kanban",
+      "regex": "^/admin/kanban(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/kanban(?:/)?$"
+    },
+    {
+      "page": "/admin/orcamentos",
+      "regex": "^/admin/orcamentos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/orcamentos(?:/)?$"
+    },
+    {
+      "page": "/admin/parceiros",
+      "regex": "^/admin/parceiros(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/parceiros(?:/)?$"
+    },
+    {
+      "page": "/admin/projetos",
+      "regex": "^/admin/projetos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/projetos(?:/)?$"
+    },
+    {
+      "page": "/admin/propostas",
+      "regex": "^/admin/propostas(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/propostas(?:/)?$"
+    },
+    {
+      "page": "/admin/validacoes",
+      "regex": "^/admin/validacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/validacoes(?:/)?$"
+    },
+    {
+      "page": "/app",
+      "regex": "^/app(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app(?:/)?$"
+    },
+    {
+      "page": "/app/solicitacoes",
+      "regex": "^/app/solicitacoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/solicitacoes(?:/)?$"
+    },
+    {
+      "page": "/app/solicitar",
+      "regex": "^/app/solicitar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/solicitar(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/signup",
+      "regex": "^/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/signup(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

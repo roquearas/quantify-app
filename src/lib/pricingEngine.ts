@@ -1,3 +1,5 @@
+'use client'
+
 import { supabase } from './supabase'
 
 export type Porte = 'small' | 'medium' | 'large'

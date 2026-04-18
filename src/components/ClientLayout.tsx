@@ -1,21 +1,35 @@
-import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
+'use client'
+
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, PlusCircle, ListChecks, LogOut, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import type { ReactNode } from 'react'
 
-export default function ClientLayout() {
+function NavItem({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+  const pathname = usePathname() ?? ""
+  const isActive = href === '/app' ? pathname === '/app' : pathname.startsWith(href)
+  return (
+    <Link href={href} className={`nav-link ${isActive ? 'active' : ''}`}>
+      {icon} {label}
+    </Link>
+  )
+}
+
+export default function ClientLayout({ children }: { children: ReactNode }) {
   const { user, signOut, isStaff } = useAuth()
-  const navigate = useNavigate()
+  const router = useRouter()
 
   async function handleLogout() {
     await signOut()
-    navigate('/', { replace: true })
+    router.replace('/')
   }
 
   return (
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <Link to="/">
+          <Link href="/">
             <img src="/logo-main.png" alt="Quantify" />
           </Link>
           <h1>Quantify<span>.</span></h1>
@@ -23,22 +37,15 @@ export default function ClientLayout() {
         </div>
         <nav className="sidebar-nav">
           <div className="nav-section">Meu painel</div>
-          <NavLink to="/app" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <LayoutDashboard /> Dashboard
-          </NavLink>
-          <NavLink to="/app/solicitar" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <PlusCircle /> Solicitar serviço
-          </NavLink>
-          <NavLink to="/app/solicitacoes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <ListChecks /> Minhas solicitações
-          </NavLink>
-
+          <NavItem href="/app" icon={<LayoutDashboard />} label="Dashboard" />
+          <NavItem href="/app/solicitar" icon={<PlusCircle />} label="Solicitar serviço" />
+          <NavItem href="/app/solicitacoes" icon={<ListChecks />} label="Minhas solicitações" />
           {isStaff && (
             <>
               <div className="nav-section">Staff</div>
-              <NavLink to="/admin" className="nav-link nav-link-admin">
+              <Link href="/admin" className="nav-link nav-link-admin">
                 <ShieldCheck /> Painel admin
-              </NavLink>
+              </Link>
             </>
           )}
         </nav>
@@ -55,7 +62,7 @@ export default function ClientLayout() {
         </div>
       </aside>
       <main className="main-content">
-        <Outlet />
+        {children}
       </main>
     </div>
   )
