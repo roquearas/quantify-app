@@ -22,6 +22,7 @@ interface Stats {
   services: number
   thisWeek: number
   overdue: number
+  projects: number
 }
 
 interface AgentStats {
@@ -30,6 +31,27 @@ interface AgentStats {
   failed: number
   warning: number
   last24h: number
+}
+
+interface BudgetStats {
+  total: number
+  aiDraft: number
+  inReview: number
+  validated: number
+  rejected: number
+  validatedTotalValue: number
+}
+
+interface RevenueStats {
+  mtdRevenue: number
+  pendingRevenue: number
+  paymentsCount: number
+}
+
+interface TopCompany {
+  company_id: string
+  company_name: string
+  requests_count: number
 }
 
 const stageLabel: Record<string, string> = {
@@ -72,9 +94,12 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     requests: 0, received: 0, quoting: 0, composing: 0, underReview: 0,
     validated: 0, sent: 0, accepted: 0, rejected: 0,
-    companies: 0, services: 0, thisWeek: 0, overdue: 0,
+    companies: 0, services: 0, thisWeek: 0, overdue: 0, projects: 0,
   })
   const [agentStats, setAgentStats] = useState<AgentStats>({ running: 0, success: 0, failed: 0, warning: 0, last24h: 0 })
+  const [budgetStats, setBudgetStats] = useState<BudgetStats>({ total: 0, aiDraft: 0, inReview: 0, validated: 0, rejected: 0, validatedTotalValue: 0 })
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>({ mtdRevenue: 0, pendingRevenue: 0, paymentsCount: 0 })
+  const [topCompanies, setTopCompanies] = useState<TopCompany[]>([])
   const [focus, setFocus] = useState<RequestRow[]>([])
   const [deadlines, setDeadlines] = useState<RequestRow[]>([])
   const [recentAgents, setRecentAgents] = useState<AgentLog[]>([])
@@ -93,6 +118,7 @@ export default function AdminDashboard() {
         companies, services, thisWeek, overdue,
         focusList, deadlineList,
         agRunning, agSuccess, agFailed, agWarning, agLast24h, agRecent,
+        budgetsRes, paymentsRes, srByCompanyRes, projectsRes,
       ] = await Promise.all([
         supabase.from('service_requests').select('id', { count: 'exact', head: true }),
         supabase.from('service_requests').select('id', { count: 'exact', head: true }).eq('stage', 'RECEIVED'),
@@ -125,7 +151,51 @@ export default function AdminDashboard() {
         supabase.from('agent_logs').select('id', { count: 'exact', head: true }).eq('status', 'WARNING'),
         supabase.from('agent_logs').select('id', { count: 'exact', head: true }).gte('created_at', dayAgo),
         supabase.from('agent_logs').select('*').order('created_at', { ascending: false }).limit(6),
+        supabase.from('budgets').select('id, status, total_cost'),
+        supabase.from('payments').select('amount, status, paid_at, created_at'),
+        supabase.from('service_requests').select('company_id, companies!inner(name)'),
+        supabase.from('projects').select('id', { count: 'exact', head: true }),
       ])
+
+      // Budget stats
+      const bData = (budgetsRes.data as unknown as Array<{ id: string; status: string; total_cost: number | null }>) || []
+      const bStats: BudgetStats = {
+        total: bData.length,
+        aiDraft: bData.filter((b) => b.status === 'AI_DRAFT').length,
+        inReview: bData.filter((b) => b.status === 'IN_REVIEW').length,
+        validated: bData.filter((b) => b.status === 'VALIDATED').length,
+        rejected: bData.filter((b) => b.status === 'REJECTED').length,
+        validatedTotalValue: bData
+          .filter((b) => b.status === 'VALIDATED')
+          .reduce((s, b) => s + (b.total_cost != null ? Number(b.total_cost) : 0), 0),
+      }
+
+      // Revenue: current month MTD
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      const pData = (paymentsRes.data as unknown as Array<{ amount: number; status: string; paid_at: string | null; created_at: string }>) || []
+      const revStats: RevenueStats = {
+        mtdRevenue: pData
+          .filter((p) => p.status === 'PAID' && p.paid_at && p.paid_at >= monthStart)
+          .reduce((s, p) => s + Number(p.amount), 0),
+        pendingRevenue: pData
+          .filter((p) => p.status === 'PENDING' || p.status === 'PROCESSING')
+          .reduce((s, p) => s + Number(p.amount), 0),
+        paymentsCount: pData.filter((p) => p.status === 'PAID').length,
+      }
+
+      // Top 5 companies by request count
+      const srData = (srByCompanyRes.data as unknown as Array<{ company_id: string; companies: { name: string } | null }>) || []
+      const counts = new Map<string, { name: string; n: number }>()
+      for (const row of srData) {
+        const k = row.company_id
+        const cur = counts.get(k) ?? { name: row.companies?.name ?? '—', n: 0 }
+        cur.n++
+        counts.set(k, cur)
+      }
+      const topCompaniesData: TopCompany[] = [...counts.entries()]
+        .map(([id, v]) => ({ company_id: id, company_name: v.name, requests_count: v.n }))
+        .sort((a, b) => b.requests_count - a.requests_count)
+        .slice(0, 5)
 
       // Flow counts per stage (for bars)
       const flowData: StageFlow[] = [
@@ -152,6 +222,7 @@ export default function AdminDashboard() {
         services: services.count || 0,
         thisWeek: thisWeek.count || 0,
         overdue: overdue.count || 0,
+        projects: projectsRes.count || 0,
       })
       setAgentStats({
         running: agRunning.count || 0,
@@ -160,6 +231,9 @@ export default function AdminDashboard() {
         warning: agWarning.count || 0,
         last24h: agLast24h.count || 0,
       })
+      setBudgetStats(bStats)
+      setRevenueStats(revStats)
+      setTopCompanies(topCompaniesData)
       setFocus((focusList.data as unknown as RequestRow[]) || [])
       setDeadlines((deadlineList.data as unknown as RequestRow[]) || [])
       setRecentAgents((agRecent.data as unknown as AgentLog[]) || [])
@@ -252,6 +326,60 @@ export default function AdminDashboard() {
             <div className="kpi-value">{stats.companies}</div>
             <div className="kpi-sub">{stats.services} serviços ativos</div>
           </div>
+        </div>
+      </div>
+
+      {/* Budgets + Revenue + Top clientes */}
+      <div className="grid grid-3" style={{ marginBottom: 20 }}>
+        <div className="card">
+          <div className="card-header">
+            <h3>Orçamentos (HITL)</h3>
+            <Link href="/admin/orcamentos" className="btn btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}>
+              Ver todos <ArrowRight size={10} />
+            </Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
+            <div><div className="kpi-label">Em revisão</div><div className="kpi-value" style={{ fontSize: 22, color: '#E67E22' }}>{budgetStats.inReview}</div></div>
+            <div><div className="kpi-label">Validados</div><div className="kpi-value" style={{ fontSize: 22, color: '#16A085' }}>{budgetStats.validated}</div></div>
+            <div><div className="kpi-label">Rascunho IA</div><div className="kpi-value" style={{ fontSize: 22 }}>{budgetStats.aiDraft}</div></div>
+            <div><div className="kpi-label">Rejeitados</div><div className="kpi-value" style={{ fontSize: 22, color: '#C0392B' }}>{budgetStats.rejected}</div></div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+            Valor total validado: <strong style={{ color: 'var(--accent-warm)' }}>{revenueStats.mtdRevenue > 0 || budgetStats.validatedTotalValue > 0 ? `R$ ${budgetStats.validatedTotalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</strong>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h3>Receita (mês atual)</h3>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <div className="kpi-label">Recebido (MTD)</div>
+            <div className="kpi-value" style={{ color: '#16A085' }}>R$ {revenueStats.mtdRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{revenueStats.paymentsCount} pagamento(s) no total</div>
+          </div>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+            <div className="kpi-label">Pendente/Processando</div>
+            <div style={{ fontSize: 18, color: '#E67E22', fontWeight: 600 }}>R$ {revenueStats.pendingRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h3>Top clientes</h3>
+          </div>
+          {topCompanies.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nenhum cliente ainda.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {topCompanies.map((c, idx) => (
+                <li key={c.company_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: idx < topCompanies.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <span style={{ fontSize: 13 }}>{idx + 1}. {c.company_name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{c.requests_count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
