@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, ClipboardCheck, Send } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Send, FileDown } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
 
 type BudgetStatus = 'AI_DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'REJECTED'
@@ -98,6 +98,16 @@ export default function AdminBudgetDetail() {
             <Link href={`/admin/orcamentos/${budget.id}/revisar`} className="btn btn-primary">
               <ClipboardCheck size={14} /> Revisar
             </Link>
+          )}
+          {budget.status === 'VALIDATED' && (
+            <a
+              href={`/api/budgets/${budget.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
+            >
+              <FileDown size={14} /> Baixar PDF
+            </a>
           )}
         </div>
       </div>
