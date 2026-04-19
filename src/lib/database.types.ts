@@ -1591,7 +1591,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finalize_budget_review: {
+        Args: { p_budget_id: string; p_user_id: string }
+        Returns: string
+      }
       get_user_company_id: { Args: never; Returns: string }
+      map_service_slug_to_budget_type: {
+        Args: { svc_slug: string }
+        Returns: Database["public"]["Enums"]["budget_type"]
+      }
+      map_service_slug_to_project_type: {
+        Args: { svc_slug: string }
+        Returns: Database["public"]["Enums"]["project_type"]
+      }
+      submit_budget_for_review: {
+        Args: { p_budget_id: string }
+        Returns: undefined
+      }
+      validate_budget_item: {
+        Args: {
+          p_action: string
+          p_changes?: Json
+          p_comment?: string
+          p_item_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       budget_type: "PARAMETRIC" | "ANALYTICAL" | "HYBRID" | "ADDITIVE"
@@ -1950,4 +1976,3 @@ export const Constants = {
     },
   },
 } as const
-
