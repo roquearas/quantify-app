@@ -115,6 +115,7 @@ export type Database = {
       }
       budget_items: {
         Row: {
+          bdi_override_percent: number | null
           budget_id: string
           category: string | null
           code: string | null
@@ -125,8 +126,14 @@ export type Database = {
           description: string
           id: string
           notes: string | null
+          origem: Database["public"]["Enums"]["budget_item_origem"]
           origin: Database["public"]["Enums"]["item_origin"]
           quantity: number
+          sinapi_codigo: string | null
+          sinapi_composicao_id: string | null
+          sinapi_insumo_id: string | null
+          sinapi_mes_referencia: string | null
+          sinapi_snapshot_jsonb: Json | null
           subcategory: string | null
           total_cost: number | null
           unit: string
@@ -134,6 +141,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bdi_override_percent?: number | null
           budget_id: string
           category?: string | null
           code?: string | null
@@ -144,8 +152,14 @@ export type Database = {
           description: string
           id?: string
           notes?: string | null
+          origem?: Database["public"]["Enums"]["budget_item_origem"]
           origin?: Database["public"]["Enums"]["item_origin"]
           quantity: number
+          sinapi_codigo?: string | null
+          sinapi_composicao_id?: string | null
+          sinapi_insumo_id?: string | null
+          sinapi_mes_referencia?: string | null
+          sinapi_snapshot_jsonb?: Json | null
           subcategory?: string | null
           total_cost?: number | null
           unit: string
@@ -153,6 +167,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bdi_override_percent?: number | null
           budget_id?: string
           category?: string | null
           code?: string | null
@@ -163,8 +178,14 @@ export type Database = {
           description?: string
           id?: string
           notes?: string | null
+          origem?: Database["public"]["Enums"]["budget_item_origem"]
           origin?: Database["public"]["Enums"]["item_origin"]
           quantity?: number
+          sinapi_codigo?: string | null
+          sinapi_composicao_id?: string | null
+          sinapi_insumo_id?: string | null
+          sinapi_mes_referencia?: string | null
+          sinapi_snapshot_jsonb?: Json | null
           subcategory?: string | null
           total_cost?: number | null
           unit?: string
@@ -191,6 +212,20 @@ export type Database = {
             columns: ["created_by_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_sinapi_composicao_id_fkey"
+            columns: ["sinapi_composicao_id"]
+            isOneToOne: false
+            referencedRelation: "sinapi_composicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_sinapi_insumo_id_fkey"
+            columns: ["sinapi_insumo_id"]
+            isOneToOne: false
+            referencedRelation: "sinapi_insumo"
             referencedColumns: ["id"]
           },
         ]
@@ -1472,6 +1507,161 @@ export type Database = {
         }
         Relationships: []
       }
+      sinapi_composicao: {
+        Row: {
+          codigo: string
+          created_at: string
+          descricao: string
+          desonerado: boolean
+          estado: string
+          grupo: string | null
+          id: string
+          insumos_jsonb: Json
+          mes_referencia: string
+          origem_arquivo: string | null
+          preco_unitario: number
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          descricao: string
+          desonerado: boolean
+          estado: string
+          grupo?: string | null
+          id?: string
+          insumos_jsonb?: Json
+          mes_referencia: string
+          origem_arquivo?: string | null
+          preco_unitario: number
+          unidade: string
+          updated_at?: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          desonerado?: boolean
+          estado?: string
+          grupo?: string | null
+          id?: string
+          insumos_jsonb?: Json
+          mes_referencia?: string
+          origem_arquivo?: string | null
+          preco_unitario?: number
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sinapi_import_log: {
+        Row: {
+          arquivo_nome: string
+          arquivo_sha256: string | null
+          composicoes_inserted: number
+          composicoes_updated: number
+          created_at: string
+          desonerado: boolean
+          duracao_ms: number | null
+          erros_jsonb: Json
+          estado: string
+          id: string
+          imported_by: string | null
+          insumos_inserted: number
+          insumos_updated: number
+          mes_referencia: string
+          status: string
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_sha256?: string | null
+          composicoes_inserted?: number
+          composicoes_updated?: number
+          created_at?: string
+          desonerado: boolean
+          duracao_ms?: number | null
+          erros_jsonb?: Json
+          estado: string
+          id?: string
+          imported_by?: string | null
+          insumos_inserted?: number
+          insumos_updated?: number
+          mes_referencia: string
+          status: string
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_sha256?: string | null
+          composicoes_inserted?: number
+          composicoes_updated?: number
+          created_at?: string
+          desonerado?: boolean
+          duracao_ms?: number | null
+          erros_jsonb?: Json
+          estado?: string
+          id?: string
+          imported_by?: string | null
+          insumos_inserted?: number
+          insumos_updated?: number
+          mes_referencia?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sinapi_import_log_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sinapi_insumo: {
+        Row: {
+          categoria: string | null
+          codigo: string
+          created_at: string
+          descricao: string
+          desonerado: boolean
+          estado: string
+          id: string
+          mes_referencia: string
+          origem_arquivo: string | null
+          preco_unitario: number
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          codigo: string
+          created_at?: string
+          descricao: string
+          desonerado: boolean
+          estado: string
+          id?: string
+          mes_referencia: string
+          origem_arquivo?: string | null
+          preco_unitario: number
+          unidade: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          desonerado?: boolean
+          estado?: string
+          id?: string
+          mes_referencia?: string
+          origem_arquivo?: string | null
+          preco_unitario?: number
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           auth_id: string | null
@@ -1481,6 +1671,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_super_admin: boolean
           name: string
           role: Database["public"]["Enums"]["user_role"]
         }
@@ -1492,6 +1683,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          is_super_admin?: boolean
           name: string
           role?: Database["public"]["Enums"]["user_role"]
         }
@@ -1503,6 +1695,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_super_admin?: boolean
           name?: string
           role?: Database["public"]["Enums"]["user_role"]
         }
@@ -1604,6 +1797,8 @@ export type Database = {
         Args: { svc_slug: string }
         Returns: Database["public"]["Enums"]["project_type"]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       submit_budget_for_review: {
         Args: { p_budget_id: string }
         Returns: undefined
@@ -1620,6 +1815,11 @@ export type Database = {
       }
     }
     Enums: {
+      budget_item_origem:
+        | "MANUAL"
+        | "SINAPI_INSUMO"
+        | "SINAPI_COMPOSICAO"
+        | "AI_DRAFT"
       budget_type: "PARAMETRIC" | "ANALYTICAL" | "HYBRID" | "ADDITIVE"
       composition_input_type:
         | "LABOR"
@@ -1854,6 +2054,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      budget_item_origem: [
+        "MANUAL",
+        "SINAPI_INSUMO",
+        "SINAPI_COMPOSICAO",
+        "AI_DRAFT",
+      ],
       budget_type: ["PARAMETRIC", "ANALYTICAL", "HYBRID", "ADDITIVE"],
       composition_input_type: [
         "LABOR",
