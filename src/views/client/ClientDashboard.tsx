@@ -14,6 +14,15 @@ interface RequestRow {
   services: { name: string } | null
 }
 
+interface ClientStats {
+  validatedBudgets: number
+  validatedBudgetsTotal: number
+  pendingProposals: number
+  pendingProposalsTotal: number
+  pendingPayments: number
+  pendingPaymentsTotal: number
+}
+
 const stageLabel: Record<string, string> = {
   RECEIVED: 'Recebido',
   QUOTING: 'Cotando',
@@ -41,20 +50,71 @@ const stageClass: Record<string, string> = {
 export default function ClientDashboard() {
   const { user } = useAuth()
   const [requests, setRequests] = useState<RequestRow[]>([])
+  const [clientStats, setClientStats] = useState<ClientStats>({
+    validatedBudgets: 0,
+    validatedBudgetsTotal: 0,
+    pendingProposals: 0,
+    pendingProposalsTotal: 0,
+    pendingPayments: 0,
+    pendingPaymentsTotal: 0,
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user) return
-    supabase
-      .from('service_requests')
-      .select('id, title, stage, created_at, services(name)')
-      .eq('company_id', user.company_id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        setRequests((data as unknown as RequestRow[]) || [])
-        setLoading(false)
+    async function load() {
+      const [reqRes, budgetsRes, proposalsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from('service_requests')
+          .select('id, title, stage, created_at, services(name)')
+          .eq('company_id', user!.company_id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('budgets')
+          .select('id, status, total_cost, projects!inner(company_id)')
+          .eq('projects.company_id', user!.company_id)
+          .eq('status', 'VALIDATED'),
+        supabase
+          .from('proposals')
+          .select('id, status, final_price')
+          .eq('company_id', user!.company_id)
+          .eq('status', 'SENT'),
+        supabase
+          .from('payments')
+          .select('id, amount, status')
+          .eq('company_id', user!.company_id)
+          .in('status', ['PENDING', 'PROCESSING']),
+      ])
+
+      setRequests((reqRes.data as unknown as RequestRow[]) || [])
+
+      const bData = (budgetsRes.data as unknown as Array<{ id: string; status: string; total_cost: number | null }>) || []
+      const validatedBudgetsTotal = bData.reduce(
+        (s, b) => s + (b.total_cost != null ? Number(b.total_cost) : 0),
+        0,
+      )
+
+      const prData = (proposalsRes.data as unknown as Array<{ id: string; status: string; final_price: number | null }>) || []
+      const pendingProposalsTotal = prData.reduce(
+        (s, p) => s + (p.final_price != null ? Number(p.final_price) : 0),
+        0,
+      )
+
+      const payData = (paymentsRes.data as unknown as Array<{ id: string; amount: number; status: string }>) || []
+      const pendingPaymentsTotal = payData.reduce((s, p) => s + Number(p.amount), 0)
+
+      setClientStats({
+        validatedBudgets: bData.length,
+        validatedBudgetsTotal,
+        pendingProposals: prData.length,
+        pendingProposalsTotal,
+        pendingPayments: payData.length,
+        pendingPaymentsTotal,
       })
+      setLoading(false)
+    }
+    load()
   }, [user])
 
   const active = requests.filter((r) => !['ACCEPTED', 'REJECTED', 'CANCELLED'].includes(r.stage))
@@ -84,6 +144,30 @@ export default function ClientDashboard() {
         <div className="card">
           <div className="kpi-label">Total histórico</div>
           <div className="kpi-value">{requests.length}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-3" style={{ marginBottom: 20 }}>
+        <div className="card">
+          <div className="kpi-label">Orçamentos validados</div>
+          <div className="kpi-value">{clientStats.validatedBudgets}</div>
+          <div className="kpi-sub" style={{ fontSize: 11 }}>
+            Total: R$ {clientStats.validatedBudgetsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="card">
+          <div className="kpi-label">Propostas aguardando aceite</div>
+          <div className="kpi-value" style={{ color: '#E67E22' }}>{clientStats.pendingProposals}</div>
+          <div className="kpi-sub" style={{ fontSize: 11 }}>
+            {clientStats.pendingProposalsTotal > 0 ? `R$ ${clientStats.pendingProposalsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+          </div>
+        </div>
+        <div className="card">
+          <div className="kpi-label">Pagamentos pendentes</div>
+          <div className="kpi-value" style={{ color: clientStats.pendingPayments > 0 ? '#C0392B' : 'inherit' }}>{clientStats.pendingPayments}</div>
+          <div className="kpi-sub" style={{ fontSize: 11 }}>
+            {clientStats.pendingPaymentsTotal > 0 ? `R$ ${clientStats.pendingPaymentsTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Nenhum pendente'}
+          </div>
         </div>
       </div>
 
