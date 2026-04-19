@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, Calculator, FileSpreadsheet,
   Users, Package, Settings, BookOpen, KanbanSquare, ShieldCheck, Terminal, LogOut,
-  FileSignature, CreditCard,
+  FileSignature, CreditCard, Database,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import type { ReactNode } from 'react'
@@ -52,6 +52,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <NavItem href="/admin/projetos" icon={<FolderKanban />} label="Projetos" />
           <NavItem href="/admin/orcamentos" icon={<Calculator />} label="Orçamentos" />
           <NavItem href="/admin/composicoes" icon={<FileSpreadsheet />} label="Composições" />
+          <NavItem href="/admin/sinapi/import" icon={<Database />} label="SINAPI" />
 
           <div className="nav-section">Gestão</div>
           <NavItem href="/admin/cotacoes" icon={<Package />} label="Cotações" />

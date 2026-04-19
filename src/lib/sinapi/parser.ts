@@ -54,8 +54,8 @@ export async function parseSinapiXlsx(
   opts: ParseOptions = {},
 ): Promise<ParsedSinapi> {
   const workbook = new ExcelJS.Workbook()
-  const input = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
-  await workbook.xlsx.load(input)
+  const input = Buffer.isBuffer(buffer) ? buffer : new Uint8Array(buffer as ArrayBuffer)
+  await workbook.xlsx.load(input as unknown as ExcelJS.Buffer)
 
   const warnings: string[] = []
   const maxRows = opts.maxRows ?? DEFAULT_MAX_ROWS
