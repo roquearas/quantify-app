@@ -1,4 +1,6 @@
+'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { FolderKanban, Plus } from 'lucide-react'
 
@@ -25,6 +27,7 @@ const statusLabel: Record<string, string> = {
 }
 
 export default function Projetos() {
+  const router = useRouter()
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -67,7 +70,11 @@ export default function Projetos() {
             </thead>
             <tbody>
               {projects.map((p) => (
-                <tr key={p.id}>
+                <tr
+                  key={p.id}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => router.push(`/admin/projetos/${p.id}`)}
+                >
                   <td>
                     <div style={{ fontWeight: 600 }}>{p.name}</div>
                     {p.client_name && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.client_name}</div>}
