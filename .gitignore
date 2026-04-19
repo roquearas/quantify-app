@@ -13,3 +13,8 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 .worktrees/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
