@@ -1789,6 +1789,16 @@ export type Database = {
         Returns: string
       }
       get_user_company_id: { Args: never; Returns: string }
+      link_budget_item_sinapi: {
+        Args: {
+          p_item_id: string
+          p_sinapi_id: string
+          p_sinapi_type: string
+          p_update_cost?: boolean
+          p_user_id: string
+        }
+        Returns: string
+      }
       map_service_slug_to_budget_type: {
         Args: { svc_slug: string }
         Returns: Database["public"]["Enums"]["budget_type"]
@@ -1796,6 +1806,26 @@ export type Database = {
       map_service_slug_to_project_type: {
         Args: { svc_slug: string }
         Returns: Database["public"]["Enums"]["project_type"]
+      }
+      search_sinapi: {
+        Args: {
+          p_desonerado: boolean
+          p_estado: string
+          p_limit?: number
+          p_mes_referencia: string
+          p_query: string
+          p_type?: string
+        }
+        Returns: {
+          categoria_ou_grupo: string
+          codigo: string
+          descricao: string
+          id: string
+          preco_unitario: number
+          similarity: number
+          tipo: string
+          unidade: string
+        }[]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -2182,3 +2212,4 @@ export const Constants = {
     },
   },
 } as const
+

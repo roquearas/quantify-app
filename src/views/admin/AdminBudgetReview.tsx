@@ -4,10 +4,13 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { ArrowLeft, CheckCircle2, XCircle, Edit3, Send } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Edit3, Send, Database } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
+import { SinapiPicker } from '../../components/SinapiPicker'
+import { linkBudgetItemSinapi, type SinapiSearchResult } from '../../lib/sinapi/search'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
+type BudgetItemOrigem = 'MANUAL' | 'SINAPI_INSUMO' | 'SINAPI_COMPOSICAO' | 'AI_DRAFT'
 
 interface BudgetItem {
   id: string
@@ -19,6 +22,9 @@ interface BudgetItem {
   total_cost: number | null
   confidence: Confidence
   category: string | null
+  origem: BudgetItemOrigem
+  sinapi_codigo: string | null
+  sinapi_mes_referencia: string | null
 }
 
 interface Validation {
@@ -52,6 +58,7 @@ export default function AdminBudgetReview() {
   const [editing, setEditing] = useState<string | null>(null)
   const [editFields, setEditFields] = useState<{ quantity: string; unit_cost: string }>({ quantity: '', unit_cost: '' })
   const [busy, setBusy] = useState(false)
+  const [pickerItem, setPickerItem] = useState<BudgetItem | null>(null)
 
   async function load() {
     setLoading(true)
@@ -107,6 +114,30 @@ export default function AdminBudgetReview() {
     if (error) { alert('Erro: ' + error.message); return }
     setEditing(null)
     await load()
+  }
+
+  async function onLinkSinapi(
+    itemId: string,
+    result: SinapiSearchResult,
+    updateCost: boolean,
+  ) {
+    if (!user) { alert('Não autenticado'); return }
+    setBusy(true)
+    try {
+      await linkBudgetItemSinapi(supabase, {
+        itemId,
+        userId: user.id,
+        sinapiType: result.tipo,
+        sinapiId: result.id,
+        updateCost,
+      })
+      setPickerItem(null)
+      await load()
+    } catch (err) {
+      alert('Erro ao linkar SINAPI: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function onFinalize() {
@@ -179,6 +210,13 @@ export default function AdminBudgetReview() {
                   <td>
                     <div>{it.description}</div>
                     {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
+                    {it.origem !== 'MANUAL' && it.sinapi_codigo && (
+                      <div style={{ fontSize: 11, color: '#2980B9', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                        <Database size={10} />
+                        SINAPI {it.origem === 'SINAPI_INSUMO' ? 'insumo' : 'composição'} {it.sinapi_codigo}
+                        {it.sinapi_mes_referencia && ` · ${it.sinapi_mes_referencia.slice(0, 7)}`}
+                      </div>
+                    )}
                     {isApproved && <div style={{ fontSize: 11, color: '#16A085' }}>✓ aprovado</div>}
                     {isRejected && <div style={{ fontSize: 11, color: '#C0392B' }}>✗ rejeitado</div>}
                   </td>
@@ -204,6 +242,7 @@ export default function AdminBudgetReview() {
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                         <button className="btn btn-xs btn-outline" title="Aprovar" onClick={() => onAction(it.id, 'APPROVE')} disabled={busy || isApproved}><CheckCircle2 size={12} /></button>
                         <button className="btn btn-xs btn-outline" title="Editar" onClick={() => { setEditing(it.id); setEditFields({ quantity: String(it.quantity), unit_cost: String(it.unit_cost ?? '') }) }} disabled={busy || isApproved}><Edit3 size={12} /></button>
+                        <button className="btn btn-xs btn-outline" title="Linkar SINAPI" onClick={() => setPickerItem(it)} disabled={busy || isApproved}><Database size={12} /></button>
                         <button className="btn btn-xs btn-outline" title="Rejeitar" onClick={() => onAction(it.id, 'REJECT')} disabled={busy || isRejected}><XCircle size={12} /></button>
                       </div>
                     )}
@@ -214,6 +253,15 @@ export default function AdminBudgetReview() {
           </tbody>
         </table>
       </div>
+
+      <SinapiPicker
+        isOpen={pickerItem !== null}
+        defaultQuery={pickerItem?.description ?? ''}
+        onClose={() => setPickerItem(null)}
+        onSelect={async (result, updateCost) => {
+          if (pickerItem) await onLinkSinapi(pickerItem.id, result, updateCost)
+        }}
+      />
 
       {validations.length > 0 && (
         <div className="card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
