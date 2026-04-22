@@ -8,8 +8,7 @@ import { ArrowLeft, CheckCircle2, XCircle, Edit3, Send, Database } from 'lucide-
 import { formatBRL } from '../../lib/pricingEngine'
 import { SinapiPicker } from '../../components/SinapiPicker'
 import { linkBudgetItemSinapi, type SinapiSearchResult } from '../../lib/sinapi/search'
-import { classifyCurvaAbc, type CurvaAbcClasse } from '../../lib/curvaAbc'
-import { BudgetCurvaABC, CURVA_ABC_COLOR } from '../../components/BudgetCurvaABC'
+import { applyBdi } from '../../lib/bdi'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
 type BudgetItemOrigem = 'MANUAL' | 'SINAPI_INSUMO' | 'SINAPI_COMPOSICAO' | 'AI_DRAFT'
@@ -22,6 +21,7 @@ interface BudgetItem {
   quantity: number
   unit_cost: number | null
   total_cost: number | null
+  bdi_override_percent: number | null
   confidence: Confidence
   category: string | null
   origem: BudgetItemOrigem
@@ -43,6 +43,7 @@ interface Budget {
   id: string
   name: string
   status: string
+  bdi_percentage: number | null
   project_id: string
   projects: { name: string } | null
 }
@@ -58,7 +59,7 @@ export default function AdminBudgetReview() {
   const [validations, setValidations] = useState<Validation[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
-  const [editFields, setEditFields] = useState<{ quantity: string; unit_cost: string }>({ quantity: '', unit_cost: '' })
+  const [editFields, setEditFields] = useState<{ quantity: string; unit_cost: string; bdi_override: string }>({ quantity: '', unit_cost: '', bdi_override: '' })
   const [busy, setBusy] = useState(false)
   const [pickerItem, setPickerItem] = useState<BudgetItem | null>(null)
   const [filtroClasse, setFiltroClasse] = useState<CurvaAbcClasse | null>(null)
@@ -66,7 +67,7 @@ export default function AdminBudgetReview() {
   async function load() {
     setLoading(true)
     const [bRes, iRes, vRes] = await Promise.all([
-      supabase.from('budgets').select('id, name, status, project_id, projects!inner(name)').eq('id', id).single(),
+      supabase.from('budgets').select('id, name, status, bdi_percentage, project_id, projects!inner(name)').eq('id', id).single(),
       supabase.from('budget_items').select('*').eq('budget_id', id).order('category').order('description'),
       supabase.from('validations').select('*').eq('budget_id', id).order('created_at'),
     ])
@@ -77,6 +78,9 @@ export default function AdminBudgetReview() {
   }
 
   useEffect(() => { if (id) load() }, [id])
+
+  const totals = useMemo(() => applyBdi(items, budget?.bdi_percentage ?? 0), [items, budget?.bdi_percentage])
+  const hasOverrides = useMemo(() => items.some((it) => it.bdi_override_percent != null), [items])
 
   const itemStatusMap = new Map<string, string>()
   for (const v of validations) {
@@ -104,9 +108,17 @@ export default function AdminBudgetReview() {
     if (!user) { alert('Não autenticado'); return }
     const qty = editFields.quantity ? Number(editFields.quantity) : undefined
     const cost = editFields.unit_cost ? Number(editFields.unit_cost) : undefined
-    const changes: Record<string, number> = {}
+    const origItem = items.find((it) => it.id === itemId)
+    const origOverride = origItem?.bdi_override_percent ?? null
+    const trimmedBdi = editFields.bdi_override.trim()
+    const newOverride: number | null =
+      trimmedBdi === '' ? null : Number.isFinite(Number(trimmedBdi)) ? Number(trimmedBdi) : null
+    const changes: Record<string, number | null> = {}
     if (qty !== undefined) changes.quantity = qty
     if (cost !== undefined) changes.unit_cost = cost
+    // Só envia bdi_override_percent se mudou (para não disparar UPDATE supérfluo)
+    if (newOverride !== origOverride) changes.bdi_override_percent = newOverride
+    if (Object.keys(changes).length === 0) { setEditing(null); return }
     setBusy(true)
     const { error } = await supabase.rpc('validate_budget_item', {
       p_item_id: itemId, p_user_id: user.id, p_action: 'EDIT',
@@ -217,6 +229,7 @@ export default function AdminBudgetReview() {
               <th style={{ textAlign: 'right' }}>Qtde</th>
               <th style={{ textAlign: 'right' }}>Custo unit.</th>
               <th style={{ textAlign: 'right' }}>Total</th>
+              <th style={{ textAlign: 'right', width: 120 }}>BDI %</th>
               <th style={{ textAlign: 'center', width: 160 }}>Ações</th>
             </tr>
           </thead>
@@ -275,6 +288,28 @@ export default function AdminBudgetReview() {
                       : (it.unit_cost != null ? formatBRL(Number(it.unit_cost)) : '—')}
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.total_cost != null ? formatBRL(Number(it.total_cost)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 12 }}>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editFields.bdi_override}
+                        onChange={(e) => setEditFields({ ...editFields, bdi_override: e.target.value })}
+                        placeholder={`(${Number(budget.bdi_percentage ?? 0).toFixed(1)})`}
+                        style={{ width: 90 }}
+                        title="Deixe vazio para usar o BDI global do orçamento"
+                      />
+                    ) : it.bdi_override_percent != null ? (
+                      <span style={{ color: 'var(--accent-warm)', fontWeight: 600 }}>
+                        {Number(it.bdi_override_percent).toFixed(2)}% *
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {Number(budget.bdi_percentage ?? 0).toFixed(2)}%
+                      </span>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     {isEditing ? (
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
@@ -284,7 +319,7 @@ export default function AdminBudgetReview() {
                     ) : (
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                         <button className="btn btn-xs btn-outline" title="Aprovar" onClick={() => onAction(it.id, 'APPROVE')} disabled={busy || isApproved}><CheckCircle2 size={12} /></button>
-                        <button className="btn btn-xs btn-outline" title="Editar" onClick={() => { setEditing(it.id); setEditFields({ quantity: String(it.quantity), unit_cost: String(it.unit_cost ?? '') }) }} disabled={busy || isApproved}><Edit3 size={12} /></button>
+                        <button className="btn btn-xs btn-outline" title="Editar" onClick={() => { setEditing(it.id); setEditFields({ quantity: String(it.quantity), unit_cost: String(it.unit_cost ?? ''), bdi_override: it.bdi_override_percent != null ? String(it.bdi_override_percent) : '' }) }} disabled={busy || isApproved}><Edit3 size={12} /></button>
                         <button className="btn btn-xs btn-outline" title="Linkar SINAPI" onClick={() => setPickerItem(it)} disabled={busy || isApproved}><Database size={12} /></button>
                         <button className="btn btn-xs btn-outline" title="Rejeitar" onClick={() => onAction(it.id, 'REJECT')} disabled={busy || isRejected}><XCircle size={12} /></button>
                       </div>
@@ -294,8 +329,34 @@ export default function AdminBudgetReview() {
               )
             })}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}>Subtotal (sem BDI)</td>
+              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatBRL(totals.subtotal)}</td>
+              <td colSpan={2} />
+            </tr>
+            {(budget.bdi_percentage != null || hasOverrides) && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'right' }}>
+                  BDI aplicado ({totals.bdiEffectivePercent.toFixed(2)}% médio{hasOverrides ? ' — com overrides' : ''})
+                </td>
+                <td style={{ textAlign: 'right' }}>{formatBRL(totals.bdiAmount)}</td>
+                <td colSpan={2} />
+              </tr>
+            )}
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}><strong>Total com BDI</strong></td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-warm)' }}><strong>{formatBRL(totals.total)}</strong></td>
+              <td colSpan={2} />
+            </tr>
+          </tfoot>
         </table>
       </div>
+      {hasOverrides && (
+        <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+          * item com BDI override (sobrescreve o BDI global do orçamento).
+        </p>
+      )}
 
       <SinapiPicker
         isOpen={pickerItem !== null}
