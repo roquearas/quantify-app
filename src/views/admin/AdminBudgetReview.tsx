@@ -9,6 +9,10 @@ import { formatBRL } from '../../lib/pricingEngine'
 import { SinapiPicker } from '../../components/SinapiPicker'
 import { BudgetCurvaABC, CURVA_ABC_COLOR } from '../../components/BudgetCurvaABC'
 import { linkBudgetItemSinapi, type SinapiSearchResult } from '../../lib/sinapi/search'
+import {
+  suggestSinapiForBudget,
+  type SinapiSuggestion,
+} from '../../lib/sinapi/suggest'
 import { applyBdi } from '../../lib/bdi'
 import { classifyCurvaAbc, type CurvaAbcClasse } from '../../lib/curvaAbc'
 import { formatScorePercent, scoreConfidence } from '../../lib/ai/suggestSinapi'
@@ -68,6 +72,9 @@ export default function AdminBudgetReview() {
   const [busy, setBusy] = useState(false)
   const [pickerItem, setPickerItem] = useState<BudgetItem | null>(null)
   const [filtroClasse, setFiltroClasse] = useState<CurvaAbcClasse | null>(null)
+  const [suggestions, setSuggestions] = useState<Map<string, SinapiSuggestion>>(new Map())
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -169,6 +176,52 @@ export default function AdminBudgetReview() {
     }
   }
 
+  async function runSuggestions() {
+    setSuggesting(true)
+    setSuggestionError(null)
+    try {
+      const list = await suggestSinapiForBudget(supabase, id)
+      setSuggestions(new Map(list.map((s) => [s.item_id, s])))
+    } catch (err) {
+      setSuggestionError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  async function acceptSuggestion(itemId: string) {
+    const sug = suggestions.get(itemId)
+    if (!sug || !user) return
+    setBusy(true)
+    try {
+      await linkBudgetItemSinapi(supabase, {
+        itemId,
+        userId: user.id,
+        sinapiType: sug.sinapi_type,
+        sinapiId: sug.sinapi_id,
+        updateCost: true,
+      })
+      setSuggestions((prev) => {
+        const next = new Map(prev)
+        next.delete(itemId)
+        return next
+      })
+      await load()
+    } catch (err) {
+      alert('Erro ao aceitar sugestão: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function ignoreSuggestion(itemId: string) {
+    setSuggestions((prev) => {
+      const next = new Map(prev)
+      next.delete(itemId)
+      return next
+    })
+  }
+
   async function onFinalize() {
     if (!user) return
     if (!confirm('Finalizar revisão? Itens aprovados serão validados; se houver rejeição, o budget vai para REJECTED.')) return
@@ -212,10 +265,36 @@ export default function AdminBudgetReview() {
             {filtroClasse && ` · filtrando classe ${filtroClasse} (${itemsFiltrados.length} visíveis)`}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onFinalize} disabled={busy || !canFinalize}>
-          <Send size={14} /> Finalizar revisão
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            className="btn btn-outline"
+            onClick={runSuggestions}
+            disabled={suggesting || busy}
+            title="Sugerir SINAPI (fuzzy-match em batch) para itens ainda não linkados"
+          >
+            <Sparkles size={14} /> {suggesting ? 'Sugerindo…' : 'Sugerir SINAPI'}
+          </button>
+          <button className="btn btn-primary" onClick={onFinalize} disabled={busy || !canFinalize}>
+            <Send size={14} /> Finalizar revisão
+          </button>
+        </div>
       </div>
+
+      {suggestionError && (
+        <div
+          className="card"
+          style={{ padding: 12, background: 'rgba(192,57,43,0.08)', color: '#C0392B', marginBottom: 12 }}
+        >
+          Falha ao sugerir SINAPI: {suggestionError}
+        </div>
+      )}
+      {suggestions.size > 0 && !suggestionError && (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+          <Sparkles size={11} style={{ verticalAlign: 'middle' }} />{' '}
+          {suggestions.size} {suggestions.size === 1 ? 'sugestão SINAPI' : 'sugestões SINAPI'} pendente
+          {suggestions.size === 1 ? '' : 's'}. Aceite ou ignore em cada linha.
+        </p>
+      )}
 
       <BudgetCurvaABC
         classified={classified}
