@@ -1,6 +1,6 @@
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
-import { classifyCurvaAbc, type CurvaAbcClasse } from '../curvaAbc'
+import { parseMemorialMd } from '../memorial'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 })
 const fmt = (n: number | null | undefined) => (n == null ? '—' : BRL.format(Number(n)))
@@ -51,14 +51,11 @@ const styles = StyleSheet.create({
   footerLine1: { fontSize: 8, color: '#0B1D3A', textAlign: 'center' },
   footerLine2: { fontSize: 6, color: '#64748B', textAlign: 'center', marginTop: 3 },
   pageNum: { position: 'absolute', bottom: 8, right: 40, fontSize: 7, color: '#94A3B8' },
-  abcSection: { marginTop: 14, marginBottom: 14 },
-  abcRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  abcLabel: { width: 20, fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
-  abcPct: { width: 42, fontSize: 9, textAlign: 'right' },
-  abcCount: { width: 60, fontSize: 8, color: '#64748B', paddingLeft: 6 },
-  abcTrack: { flex: 1, height: 6, backgroundColor: '#E2E8F0', borderRadius: 2, marginHorizontal: 6 },
-  abcFill: { height: 6, borderRadius: 2 },
-  abcValue: { width: 90, fontSize: 8, textAlign: 'right' },
+  memorialH1: { fontSize: 12, fontWeight: 'bold', marginTop: 10, marginBottom: 6, color: '#0B1D3A' },
+  memorialH2: { fontSize: 10, fontWeight: 'bold', marginTop: 8, marginBottom: 4, color: '#16A085' },
+  memorialH3: { fontSize: 9, fontWeight: 'bold', marginTop: 6, marginBottom: 3, color: '#0B1D3A' },
+  memorialP: { fontSize: 9, marginBottom: 5, lineHeight: 1.5, textAlign: 'justify' },
+  memorialLi: { fontSize: 9, marginBottom: 2, marginLeft: 10, lineHeight: 1.4 },
 })
 
 const ABC_COLOR: Record<CurvaAbcClasse, string> = {
@@ -80,6 +77,7 @@ interface BudgetPDFProps {
     price_base: string
     bdi_percentage: number | null
     total_cost: number | null
+    memorial_md: string | null
     created_at: string
   }
   project: {
@@ -127,16 +125,7 @@ export function BudgetPDF(props: BudgetPDFProps) {
   const bdiAmount = subtotal * (bdi / 100)
   const total = subtotal + bdiAmount
 
-  // Curva ABC — mesma classificação usada na UI de review (Pareto 80/95/100)
-  const classified = classifyCurvaAbc(items)
-  const abcSummary = { A: { count: 0, sum: 0 }, B: { count: 0, sum: 0 }, C: { count: 0, sum: 0 } }
-  for (const it of classified) {
-    if (it.classe_abc && it.classe_abc in abcSummary) {
-      const custo = Number(it.total_cost ?? 0)
-      abcSummary[it.classe_abc].count += 1
-      abcSummary[it.classe_abc].sum += custo
-    }
-  }
+  const memorialBlocks = parseMemorialMd(budget.memorial_md)
 
   const footerText = validator.crea
     ? `Validado por ${validator.name}, CREA ${validator.crea} em ${new Date(validator.when).toLocaleString('pt-BR')}`
@@ -174,6 +163,25 @@ export function BudgetPDF(props: BudgetPDFProps) {
             <View style={styles.infoCell}><Text style={styles.infoLabel}>Tipo de orçamento</Text><Text style={styles.infoValue}>{budget.type} · base {budget.price_base}</Text></View>
           </View>
         </View>
+
+        {/* Memorial descritivo */}
+        {memorialBlocks.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Memorial descritivo</Text>
+            {memorialBlocks.map((b, i) => {
+              if (b.kind === 'h1') return <Text key={i} style={styles.memorialH1}>{b.text}</Text>
+              if (b.kind === 'h2') return <Text key={i} style={styles.memorialH2}>{b.text}</Text>
+              if (b.kind === 'h3') return <Text key={i} style={styles.memorialH3}>{b.text}</Text>
+              if (b.kind === 'p') return <Text key={i} style={styles.memorialP}>{b.text}</Text>
+              if (b.kind === 'ul') return (
+                <View key={i}>
+                  {b.items.map((it, j) => <Text key={j} style={styles.memorialLi}>•  {it}</Text>)}
+                </View>
+              )
+              return null
+            })}
+          </View>
+        )}
 
         {/* Items table */}
         <View style={styles.section}>
