@@ -1,5 +1,6 @@
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { parseMemorialMd } from '../memorial'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 })
 const fmt = (n: number | null | undefined) => (n == null ? '—' : BRL.format(Number(n)))
@@ -50,6 +51,11 @@ const styles = StyleSheet.create({
   footerLine1: { fontSize: 8, color: '#0B1D3A', textAlign: 'center' },
   footerLine2: { fontSize: 6, color: '#64748B', textAlign: 'center', marginTop: 3 },
   pageNum: { position: 'absolute', bottom: 8, right: 40, fontSize: 7, color: '#94A3B8' },
+  memorialH1: { fontSize: 12, fontWeight: 'bold', marginTop: 10, marginBottom: 6, color: '#0B1D3A' },
+  memorialH2: { fontSize: 10, fontWeight: 'bold', marginTop: 8, marginBottom: 4, color: '#16A085' },
+  memorialH3: { fontSize: 9, fontWeight: 'bold', marginTop: 6, marginBottom: 3, color: '#0B1D3A' },
+  memorialP: { fontSize: 9, marginBottom: 5, lineHeight: 1.5, textAlign: 'justify' },
+  memorialLi: { fontSize: 9, marginBottom: 2, marginLeft: 10, lineHeight: 1.4 },
 })
 
 const confSymbol: Record<string, string> = { HIGH: '●', MEDIUM: '●', LOW: '●' }
@@ -65,6 +71,7 @@ interface BudgetPDFProps {
     price_base: string
     bdi_percentage: number | null
     total_cost: number | null
+    memorial_md: string | null
     created_at: string
   }
   project: {
@@ -112,6 +119,8 @@ export function BudgetPDF(props: BudgetPDFProps) {
   const bdiAmount = subtotal * (bdi / 100)
   const total = subtotal + bdiAmount
 
+  const memorialBlocks = parseMemorialMd(budget.memorial_md)
+
   const footerText = validator.crea
     ? `Validado por ${validator.name}, CREA ${validator.crea} em ${new Date(validator.when).toLocaleString('pt-BR')}`
     : `Validado por ${validator.name} em ${new Date(validator.when).toLocaleString('pt-BR')}`
@@ -148,6 +157,25 @@ export function BudgetPDF(props: BudgetPDFProps) {
             <View style={styles.infoCell}><Text style={styles.infoLabel}>Tipo de orçamento</Text><Text style={styles.infoValue}>{budget.type} · base {budget.price_base}</Text></View>
           </View>
         </View>
+
+        {/* Memorial descritivo */}
+        {memorialBlocks.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Memorial descritivo</Text>
+            {memorialBlocks.map((b, i) => {
+              if (b.kind === 'h1') return <Text key={i} style={styles.memorialH1}>{b.text}</Text>
+              if (b.kind === 'h2') return <Text key={i} style={styles.memorialH2}>{b.text}</Text>
+              if (b.kind === 'h3') return <Text key={i} style={styles.memorialH3}>{b.text}</Text>
+              if (b.kind === 'p') return <Text key={i} style={styles.memorialP}>{b.text}</Text>
+              if (b.kind === 'ul') return (
+                <View key={i}>
+                  {b.items.map((it, j) => <Text key={j} style={styles.memorialLi}>•  {it}</Text>)}
+                </View>
+              )
+              return null
+            })}
+          </View>
+        )}
 
         {/* Items table */}
         <View style={styles.section}>

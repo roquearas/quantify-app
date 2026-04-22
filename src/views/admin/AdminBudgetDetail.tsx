@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, ClipboardCheck, Send, FileDown, BarChart3 } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
+import { MemorialEditor } from '../../components/MemorialEditor'
 
 type BudgetStatus = 'AI_DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'REJECTED'
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
@@ -31,6 +32,7 @@ interface Budget {
   price_base: string
   total_cost: number | null
   bdi_percentage: number | null
+  memorial_md: string | null
   project_id: string
   projects: { name: string; client_name: string | null } | null
 }
@@ -51,7 +53,7 @@ export default function AdminBudgetDetail() {
   async function load() {
     setLoading(true)
     const [bRes, iRes] = await Promise.all([
-      supabase.from('budgets').select('id, name, version, status, type, price_base, total_cost, bdi_percentage, project_id, projects!inner(name, client_name)').eq('id', id).single(),
+      supabase.from('budgets').select('id, name, version, status, type, price_base, total_cost, bdi_percentage, memorial_md, project_id, projects!inner(name, client_name)').eq('id', id).single(),
       supabase.from('budget_items').select('*').eq('budget_id', id).order('category').order('description'),
     ])
     setBudget((bRes.data as unknown as Budget) || null)
@@ -71,12 +73,23 @@ export default function AdminBudgetDetail() {
     await load()
   }
 
+  async function saveMemorial(md: string | null) {
+    if (!budget) return
+    const { error } = await supabase
+      .from('budgets')
+      .update({ memorial_md: md })
+      .eq('id', budget.id)
+    if (error) { alert('Erro ao salvar memorial: ' + error.message); return }
+    await load()
+  }
+
   if (loading) return <div className="loading">Carregando...</div>
   if (!budget) return <div className="empty-state"><h3>Orçamento não encontrado</h3></div>
 
   const subtotal = items.reduce((s, it) => s + Number(it.total_cost ?? 0), 0)
   const bdiMult = budget.bdi_percentage ? 1 + Number(budget.bdi_percentage) / 100 : 1
   const total = subtotal * bdiMult
+  const memorialEditable = budget.status === 'AI_DRAFT' || budget.status === 'IN_REVIEW'
 
   return (
     <>
@@ -115,6 +128,14 @@ export default function AdminBudgetDetail() {
             </a>
           )}
         </div>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <MemorialEditor
+          memorialMd={budget.memorial_md}
+          onSave={saveMemorial}
+          readOnly={!memorialEditable}
+        />
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

@@ -232,10 +232,12 @@ export type Database = {
       }
       budgets: {
         Row: {
+          bdi_breakdown: Json | null
           bdi_percentage: number | null
           confidence: number | null
           created_at: string
           id: string
+          memorial_md: string | null
           name: string
           parent_id: string | null
           price_base: Database["public"]["Enums"]["price_base"]
@@ -248,10 +250,12 @@ export type Database = {
           version: number
         }
         Insert: {
+          bdi_breakdown?: Json | null
           bdi_percentage?: number | null
           confidence?: number | null
           created_at?: string
           id?: string
+          memorial_md?: string | null
           name: string
           parent_id?: string | null
           price_base?: Database["public"]["Enums"]["price_base"]
@@ -264,10 +268,12 @@ export type Database = {
           version?: number
         }
         Update: {
+          bdi_breakdown?: Json | null
           bdi_percentage?: number | null
           confidence?: number | null
           created_at?: string
           id?: string
+          memorial_md?: string | null
           name?: string
           parent_id?: string | null
           price_base?: Database["public"]["Enums"]["price_base"]
@@ -2250,4 +2256,3 @@ export const Constants = {
     },
   },
 } as const
-

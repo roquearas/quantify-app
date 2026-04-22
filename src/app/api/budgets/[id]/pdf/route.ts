@@ -70,6 +70,7 @@ export async function GET(
       total_cost: budget.total_cost != null ? Number(budget.total_cost) : null,
       price_base: budget.price_base as string,
       type: budget.type as string,
+      memorial_md: budget.memorial_md,
     },
     items: items.map(it => ({
       id: it.id,
@@ -106,6 +107,7 @@ export async function GET(
         price_base: budget.price_base as string,
         bdi_percentage: budget.bdi_percentage != null ? Number(budget.bdi_percentage) : null,
         total_cost: budget.total_cost != null ? Number(budget.total_cost) : null,
+        memorial_md: budget.memorial_md,
         created_at: budget.created_at,
       },
       project: {
