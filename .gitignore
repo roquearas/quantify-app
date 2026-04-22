@@ -4,6 +4,7 @@ node_modules/
 # next.js
 .next/
 out/
+dist/
 
 # env
 .env*.local
@@ -12,4 +13,12 @@ out/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# git worktree workspaces
 .worktrees/
+
+# tooling
+.claude/
+
+# supabase CLI state (keep migrations tracked under supabase/)
+supabase/.temp/
