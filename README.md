@@ -42,7 +42,46 @@ npm run test:e2e:ui   # Playwright UI mode
 | 1E — Dashboards reais | ✅ |
 | 1F — Smoke tests + polimento | ✅ |
 
+## Estado da Fase 2 (engine de orçamento)
+
+| Sub-plano | Status |
+|---|---|
+| 2A — Schema SINAPI + origem no item | ✅ |
+| 2B — Picker SINAPI + search fuzzy | ✅ |
+| 2C — Curva ABC visível no review | ✅ |
+| 2D — BDI configurável (global + por item) | ✅ |
+| 2E — Memorial descritivo (markdown) | ✅ |
+| 2F — AI fuzzy-match em batch + E2E + docs | ✅ |
+
 Ver [docs/plans/](docs/plans/) e [docs/specs/](docs/specs/) para detalhes.
+
+## Engine de orçamento
+
+A Quantify transforma uma solicitação de serviço num PDF assinado em 6 passos:
+
+```
+service_request → project → budget (AI_DRAFT)
+                              ↓
+                    review HITL item-por-item
+                              ↓
+   (opcional) linkar SINAPI via picker ou sugestão automática
+                              ↓
+              Curva ABC + BDI (global ou por item)
+                              ↓
+                memorial descritivo (markdown)
+                              ↓
+                  finalizar → VALIDATED
+                              ↓
+                     PDF assinado (SHA-256)
+```
+
+Detalhes:
+
+- **SINAPI**: ~12.000 insumos + ~5.500 composições por UF/mês, buscáveis por `pg_trgm` no picker. Aceite grava snapshot em `budget_items.sinapi_snapshot_jsonb`. Ver [sinapi-import-guide.md](docs/sinapi-import-guide.md).
+- **Curva ABC**: classificação Pareto (A = 80% / B = 15% / C = 5%) renderizada em bar chart no review e no PDF. Filtrável por classe.
+- **BDI**: percentual global no orçamento + override opcional por item (`bdi_override_percent`). Total do budget mostra BDI médio ponderado + asterisco quando há overrides.
+- **Memorial descritivo**: markdown livre (`budgets.memorial_md`) renderizado antes da tabela de itens no PDF final.
+- **Engineer-first**: nada sai sem `VALIDATED`, toda mudança vira linha em `validations`.
 
 ## Serviços ofertados (catálogo)
 
