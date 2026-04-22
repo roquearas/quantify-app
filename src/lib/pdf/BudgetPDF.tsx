@@ -58,6 +58,12 @@ const styles = StyleSheet.create({
   memorialLi: { fontSize: 9, marginBottom: 2, marginLeft: 10, lineHeight: 1.4 },
 })
 
+const ABC_COLOR: Record<CurvaAbcClasse, string> = {
+  A: '#C0392B',
+  B: '#E67E22',
+  C: '#16A085',
+}
+
 const confSymbol: Record<string, string> = { HIGH: '●', MEDIUM: '●', LOW: '●' }
 const confColor: Record<string, string> = { HIGH: '#16A085', MEDIUM: '#E67E22', LOW: '#C0392B' }
 
@@ -224,6 +230,28 @@ export function BudgetPDF(props: BudgetPDFProps) {
             </View>
           </View>
         </View>
+
+        {/* Curva ABC */}
+        {subtotal > 0 && (
+          <View style={styles.abcSection} wrap={false}>
+            <Text style={styles.sectionTitle}>Composição por curva ABC</Text>
+            {(['A', 'B', 'C'] as const).map((classe) => {
+              const row = abcSummary[classe]
+              const percent = subtotal > 0 ? (row.sum / subtotal) * 100 : 0
+              return (
+                <View key={classe} style={styles.abcRow}>
+                  <Text style={[styles.abcLabel, { color: ABC_COLOR[classe] }]}>{classe}</Text>
+                  <Text style={styles.abcPct}>{percent.toFixed(1)}%</Text>
+                  <Text style={styles.abcCount}>{row.count} {row.count === 1 ? 'item' : 'itens'}</Text>
+                  <View style={styles.abcTrack}>
+                    <View style={[styles.abcFill, { width: `${percent}%`, backgroundColor: ABC_COLOR[classe] }]} />
+                  </View>
+                  <Text style={styles.abcValue}>{fmt(row.sum)}</Text>
+                </View>
+              )
+            })}
+          </View>
+        )}
 
         {/* Trilha de validações */}
         {validations.length > 0 && (

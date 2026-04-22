@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, ClipboardCheck, Send, FileDown, BarChart3 } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
@@ -18,6 +18,7 @@ interface BudgetItem {
   quantity: number
   unit_cost: number | null
   total_cost: number | null
+  bdi_override_percent: number | null
   confidence: Confidence
   origin: string
   category: string | null
@@ -149,34 +150,62 @@ export default function AdminBudgetDetail() {
               <th style={{ textAlign: 'right' }}>Qtde</th>
               <th style={{ textAlign: 'right' }}>Custo unit.</th>
               <th style={{ textAlign: 'right' }}>Total</th>
+              <th style={{ textAlign: 'right' }}>BDI</th>
               <th>Confiança</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
-              <tr key={it.id}>
-                <td>{it.code || '—'}</td>
-                <td>
-                  <div>{it.description}</div>
-                  {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
-                </td>
-                <td>{it.unit}</td>
-                <td style={{ textAlign: 'right' }}>{Number(it.quantity).toLocaleString('pt-BR')}</td>
-                <td style={{ textAlign: 'right' }}>{it.unit_cost != null ? formatBRL(Number(it.unit_cost)) : '—'}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.total_cost != null ? formatBRL(Number(it.total_cost)) : '—'}</td>
-                <td style={{ color: confColor[it.confidence] }}>{confLabel[it.confidence]}</td>
-              </tr>
-            ))}
+            {items.map((it) => {
+              const usesOverride = it.bdi_override_percent != null
+              const effectiveBdi = usesOverride ? Number(it.bdi_override_percent) : Number(budget.bdi_percentage ?? 0)
+              return (
+                <tr key={it.id}>
+                  <td>{it.code || '—'}</td>
+                  <td>
+                    <div>{it.description}</div>
+                    {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
+                  </td>
+                  <td>{it.unit}</td>
+                  <td style={{ textAlign: 'right' }}>{Number(it.quantity).toLocaleString('pt-BR')}</td>
+                  <td style={{ textAlign: 'right' }}>{it.unit_cost != null ? formatBRL(Number(it.unit_cost)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.total_cost != null ? formatBRL(Number(it.total_cost)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 12, color: usesOverride ? 'var(--accent-warm)' : 'var(--text-muted)' }}>
+                    {effectiveBdi.toFixed(2)}%{usesOverride ? ' *' : ''}
+                  </td>
+                  <td style={{ color: confColor[it.confidence] }}>{confLabel[it.confidence]}</td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
-            <tr><td colSpan={5} style={{ textAlign: 'right' }}>Subtotal</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{formatBRL(subtotal)}</td><td /></tr>
-            {budget.bdi_percentage != null && (
-              <tr><td colSpan={5} style={{ textAlign: 'right' }}>BDI ({Number(budget.bdi_percentage).toFixed(1)}%)</td><td style={{ textAlign: 'right' }}>{formatBRL(total - subtotal)}</td><td /></tr>
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}>Subtotal (sem BDI)</td>
+              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatBRL(totals.subtotal)}</td>
+              <td colSpan={2} />
+            </tr>
+            {(budget.bdi_percentage != null || hasOverrides) && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'right' }}>
+                  BDI aplicado ({totals.bdiEffectivePercent.toFixed(2)}% médio
+                  {hasOverrides ? ' — com overrides' : ''})
+                </td>
+                <td style={{ textAlign: 'right' }}>{formatBRL(totals.bdiAmount)}</td>
+                <td colSpan={2} />
+              </tr>
             )}
-            <tr><td colSpan={5} style={{ textAlign: 'right' }}><strong>Total</strong></td><td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-warm)' }}><strong>{formatBRL(total)}</strong></td><td /></tr>
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}><strong>Total com BDI</strong></td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-warm)' }}><strong>{formatBRL(totals.total)}</strong></td>
+              <td colSpan={2} />
+            </tr>
           </tfoot>
         </table>
       </div>
+      {hasOverrides && (
+        <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+          * item com BDI override (sobrescreve o BDI global do orçamento).
+        </p>
+      )}
     </>
   )
 }
