@@ -135,6 +135,8 @@ export type Database = {
           sinapi_mes_referencia: string | null
           sinapi_snapshot_jsonb: Json | null
           subcategory: string | null
+          suggested_sinapi_codigo: string | null
+          suggested_sinapi_score: number | null
           total_cost: number | null
           unit: string
           unit_cost: number | null
@@ -161,6 +163,8 @@ export type Database = {
           sinapi_mes_referencia?: string | null
           sinapi_snapshot_jsonb?: Json | null
           subcategory?: string | null
+          suggested_sinapi_codigo?: string | null
+          suggested_sinapi_score?: number | null
           total_cost?: number | null
           unit: string
           unit_cost?: number | null
@@ -187,6 +191,8 @@ export type Database = {
           sinapi_mes_referencia?: string | null
           sinapi_snapshot_jsonb?: Json | null
           subcategory?: string | null
+          suggested_sinapi_codigo?: string | null
+          suggested_sinapi_score?: number | null
           total_cost?: number | null
           unit?: string
           unit_cost?: number | null
@@ -1876,6 +1882,26 @@ export type Database = {
       submit_budget_for_review: {
         Args: { p_budget_id: string }
         Returns: undefined
+      }
+      suggest_sinapi_composicao: {
+        Args: {
+          p_description: string
+          p_desonerado?: boolean
+          p_estado?: string
+          p_limit?: number
+          p_mes_referencia?: string
+          p_threshold?: number
+        }
+        Returns: {
+          codigo: string
+          descricao: string
+          desonerado: boolean
+          estado: string
+          mes_referencia: string
+          preco_unitario: number
+          score: number
+          unidade: string
+        }[]
       }
       validate_budget_item: {
         Args: {

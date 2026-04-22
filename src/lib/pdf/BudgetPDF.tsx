@@ -1,6 +1,7 @@
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { parseMemorialMd } from '../memorial'
+import { classifyCurvaAbc, type CurvaAbcClasse } from '../curvaAbc'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 })
 const fmt = (n: number | null | undefined) => (n == null ? '—' : BRL.format(Number(n)))
@@ -56,6 +57,14 @@ const styles = StyleSheet.create({
   memorialH3: { fontSize: 9, fontWeight: 'bold', marginTop: 6, marginBottom: 3, color: '#0B1D3A' },
   memorialP: { fontSize: 9, marginBottom: 5, lineHeight: 1.5, textAlign: 'justify' },
   memorialLi: { fontSize: 9, marginBottom: 2, marginLeft: 10, lineHeight: 1.4 },
+  abcSection: { marginBottom: 14 },
+  abcRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, borderBottom: '0.5pt solid #E2E8F0' },
+  abcLabel: { width: 20, fontSize: 12, fontWeight: 'bold' },
+  abcPct: { width: 48, fontSize: 9, color: '#0B1D3A' },
+  abcCount: { width: 70, fontSize: 8, color: '#64748B' },
+  abcTrack: { flex: 1, height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, marginHorizontal: 8, overflow: 'hidden' },
+  abcFill: { height: '100%', borderRadius: 4 },
+  abcValue: { width: 90, textAlign: 'right', fontSize: 9, fontWeight: 'bold' },
 })
 
 const ABC_COLOR: Record<CurvaAbcClasse, string> = {
@@ -126,6 +135,20 @@ export function BudgetPDF(props: BudgetPDFProps) {
   const total = subtotal + bdiAmount
 
   const memorialBlocks = parseMemorialMd(budget.memorial_md)
+
+  // Curva ABC: classifica itens por total_cost e agrega por classe A/B/C
+  const classifiedItems = classifyCurvaAbc(items)
+  const abcSummary: Record<CurvaAbcClasse, { sum: number; count: number }> = {
+    A: { sum: 0, count: 0 },
+    B: { sum: 0, count: 0 },
+    C: { sum: 0, count: 0 },
+  }
+  for (const row of classifiedItems) {
+    if (row.classe_abc) {
+      abcSummary[row.classe_abc].sum += Number(row.total_cost ?? 0)
+      abcSummary[row.classe_abc].count += 1
+    }
+  }
 
   const footerText = validator.crea
     ? `Validado por ${validator.name}, CREA ${validator.crea} em ${new Date(validator.when).toLocaleString('pt-BR')}`

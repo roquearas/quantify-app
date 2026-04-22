@@ -42,7 +42,45 @@ npm run test:e2e:ui   # Playwright UI mode
 | 1E — Dashboards reais | ✅ |
 | 1F — Smoke tests + polimento | ✅ |
 
+## Estado da Fase 2 (engine de orçamento)
+
+| Sub-plano | Status |
+|---|---|
+| 2A — Tabela SINAPI + import XLSX | ✅ |
+| 2B — Picker + link HITL | ✅ |
+| 2C — Curva ABC visual | ✅ |
+| 2D — Calculadora BDI (TCU 2622/2013) | ✅ |
+| 2E — Memorial descritivo no PDF | ✅ |
+| 2F — Fuzzy-match AI + E2E + docs | ✅ |
+
 Ver [docs/plans/](docs/plans/) e [docs/specs/](docs/specs/) para detalhes.
+
+## Como funciona o engine de orçamento
+
+O fluxo end-to-end de um orçamento na Quantify:
+
+1. **Input** — cliente descreve a obra (tipo, área, localização, nível de acabamento)
+2. **AI draft** — agente gera `budget_items` em `AI_DRAFT`, populando quando possível:
+   - `suggested_sinapi_codigo` + `suggested_sinapi_score` via fuzzy-match pg_trgm
+   - `confidence` (HIGH/MEDIUM/LOW) por item
+3. **HITL review** (`/admin/orcamentos/:id/revisar`):
+   - **Curva ABC** (Pareto 80/15/5) destaca itens de maior impacto
+   - Reviewer vê **sugestões IA** ao abrir o `SinapiPicker`
+   - Pode aceitar, escolher outra composição, editar quantidade/custo, aprovar/rejeitar
+   - BDI override por item (TCU 2622/2013: `[(1+DI+R)(1+L)]/(1-I) - 1`)
+4. **Memorial descritivo** em markdown — materiais, técnicas, normas
+5. **Finalização** → status `VALIDATED` com trilha completa em `validations`
+6. **PDF assinado** via `/api/budgets/:id/pdf` — com hash SHA-256 do conteúdo
+
+**Integridade**: cada PDF inclui `X-Budget-Hash` no header + anexa o memorial,
+a curva ABC, o BDI detalhado (se TCU) e a trilha de aprovações. O hash permite
+ao cliente validar que o documento não foi adulterado.
+
+**AI + auditabilidade**: a IA nunca decide sozinha. Toda vinculação SINAPI,
+todo override de BDI e toda mudança de quantidade passa pela validação do
+engenheiro responsável (CREA registrado no PDF).
+
+Mais detalhes em [docs/sinapi-import-guide.md](docs/sinapi-import-guide.md).
 
 ## Serviços ofertados (catálogo)
 
@@ -67,7 +105,9 @@ Cada serviço tem multiplicadores configuráveis (porte, urgência, tipologia) p
 
 ## Documentação
 
-- [Spec Fase 1](docs/specs/2026-04-18-fase1-fundacao-design.md) — design completo
+- [Spec Fase 1](docs/specs/2026-04-18-fase1-fundacao-design.md) — design Fase 1
+- [Spec Fase 2](docs/specs/2026-04-18-fase2-engine-orcamento-design.md) — design Fase 2 (engine de orçamento)
+- [Guia SINAPI](docs/sinapi-import-guide.md) — import + fuzzy-match + picker HITL
 - [Planos](docs/plans/) — decomposição em sub-planos executáveis
 - [Blueprints](docs/reference/) — visão de produto v1/v2
 - [Setup guide](docs/setup-guide.md) — Supabase + Vercel

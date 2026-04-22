@@ -4,11 +4,14 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
-import { ArrowLeft, CheckCircle2, XCircle, Edit3, Send, Database } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Edit3, Send, Database, Sparkles } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
 import { SinapiPicker } from '../../components/SinapiPicker'
+import { BudgetCurvaABC, CURVA_ABC_COLOR } from '../../components/BudgetCurvaABC'
 import { linkBudgetItemSinapi, type SinapiSearchResult } from '../../lib/sinapi/search'
 import { applyBdi } from '../../lib/bdi'
+import { classifyCurvaAbc, type CurvaAbcClasse } from '../../lib/curvaAbc'
+import { formatScorePercent, scoreConfidence } from '../../lib/ai/suggestSinapi'
 
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
 type BudgetItemOrigem = 'MANUAL' | 'SINAPI_INSUMO' | 'SINAPI_COMPOSICAO' | 'AI_DRAFT'
@@ -27,6 +30,8 @@ interface BudgetItem {
   origem: BudgetItemOrigem
   sinapi_codigo: string | null
   sinapi_mes_referencia: string | null
+  suggested_sinapi_codigo: string | null
+  suggested_sinapi_score: number | null
 }
 
 interface Validation {
@@ -81,6 +86,15 @@ export default function AdminBudgetReview() {
 
   const totals = useMemo(() => applyBdi(items, budget?.bdi_percentage ?? 0), [items, budget?.bdi_percentage])
   const hasOverrides = useMemo(() => items.some((it) => it.bdi_override_percent != null), [items])
+  const classified = useMemo(() => classifyCurvaAbc(items), [items])
+  const classeByItemId = useMemo(
+    () => new Map(classified.map((c) => [c.id, c.classe_abc])),
+    [classified],
+  )
+  const itemsFiltrados = useMemo(
+    () => (filtroClasse ? items.filter((it) => classeByItemId.get(it.id) === filtroClasse) : items),
+    [items, filtroClasse, classeByItemId],
+  )
 
   const itemStatusMap = new Map<string, string>()
   for (const v of validations) {
@@ -185,16 +199,6 @@ export default function AdminBudgetReview() {
   const pendingCount = items.length - approvedCount - rejectedCount
   const canFinalize = pendingCount === 0 || rejectedCount > 0
 
-  const classified = useMemo(() => classifyCurvaAbc(items), [items])
-  const classeByItemId = useMemo(
-    () => new Map(classified.map((c) => [c.id, c.classe_abc])),
-    [classified],
-  )
-  const itemsFiltrados = useMemo(
-    () => (filtroClasse ? items.filter((it) => classeByItemId.get(it.id) === filtroClasse) : items),
-    [items, filtroClasse, classeByItemId],
-  )
-
   return (
     <>
       <div className="page-header">
@@ -271,6 +275,24 @@ export default function AdminBudgetReview() {
                         <Database size={10} />
                         SINAPI {it.origem === 'SINAPI_INSUMO' ? 'insumo' : 'composição'} {it.sinapi_codigo}
                         {it.sinapi_mes_referencia && ` · ${it.sinapi_mes_referencia.slice(0, 7)}`}
+                      </div>
+                    )}
+                    {/* Fase 2F: sugestão AI (fuzzy) — exibe quando ainda não há link SINAPI */}
+                    {!it.sinapi_codigo && it.suggested_sinapi_codigo && it.suggested_sinapi_score != null && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          display: 'inline-flex',
+                          gap: 4,
+                          alignItems: 'center',
+                          color: scoreConfidence(Number(it.suggested_sinapi_score)) === 'high' ? '#16A085'
+                               : scoreConfidence(Number(it.suggested_sinapi_score)) === 'medium' ? '#E67E22' : '#7F8C8D',
+                          marginTop: 2,
+                        }}
+                        title={`Similaridade ${Number(it.suggested_sinapi_score).toFixed(3)} — clique em "Linkar SINAPI" para revisar`}
+                      >
+                        <Sparkles size={10} />
+                        IA sugere: SINAPI {it.suggested_sinapi_codigo} ({formatScorePercent(Number(it.suggested_sinapi_score))})
                       </div>
                     )}
                     {isApproved && <div style={{ fontSize: 11, color: '#16A085' }}>✓ aprovado</div>}
