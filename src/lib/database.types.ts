@@ -905,6 +905,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "quotation_items_budget_item_id_fkey"
+            columns: ["budget_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_items_curva_abc"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quotation_items_quotation_id_fkey"
             columns: ["quotation_id"]
             isOneToOne: false
@@ -1781,7 +1788,38 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_budget_items_curva_abc: {
+        Row: {
+          budget_id: string | null
+          budget_total: number | null
+          category: string | null
+          classe_abc: string | null
+          code: string | null
+          confidence: Database["public"]["Enums"]["confidence_level"] | null
+          cumulative_cost: number | null
+          cumulative_percent: number | null
+          description: string | null
+          id: string | null
+          item_percent: number | null
+          origem: Database["public"]["Enums"]["budget_item_origem"] | null
+          quantity: number | null
+          rank_position: number | null
+          sinapi_codigo: string | null
+          sinapi_mes_referencia: string | null
+          total_cost: number | null
+          unit: string | null
+          unit_cost: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       finalize_budget_review: {
