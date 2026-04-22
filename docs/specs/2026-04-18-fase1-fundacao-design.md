@@ -1,7 +1,7 @@
 # Fase 1 — Fundação Sólida (baseline comercializável)
 
 - **Data**: 2026-04-18
-- **Status**: Draft, aguardando aprovação
+- **Status**: ✅ Implementado (2026-04-22) — todos os sub-planos 1A-1F mergeados. Fase 2 em andamento; ver `docs/specs/2026-04-18-fase2-engine-orcamento-design.md`.
 - **Objetivo macro**: o fluxo atual (cliente → proposta → pagamento) passa a entregar um **orçamento real** (PDF analítico assinado por engenheiro) com **trilha de validação humana** completa. É o que torna o produto **vendável pra um cliente pagante**, sem depender de agentes de IA ainda.
 
 ---
@@ -311,15 +311,15 @@ Não entra nesta fase:
 
 Fase 1 está **pronta** quando:
 
-- [ ] Schema do banco está reconciliado (migrations 001-008 aplicadas, tudo alinhado)
-- [ ] Fluxo completo roda em staging: cliente solicita → admin valida → PDF gerado → cliente paga → PDF final disponível
-- [ ] 3 tipos de serviço (orçamento obra, elétrica, laudo) têm templates PDF próprios
-- [ ] Trilha de validação aparece em `validations` para todo budget VALIDATED
-- [ ] Dashboards (admin + cliente) mostram dados reais
-- [ ] 3 cenários E2E em Playwright passando no CI
-- [ ] RLS verificada (teste cross-tenant falha como esperado)
-- [ ] Isabela ou outro engenheiro validou 1 orçamento real ponta-a-ponta
-- [ ] Documentação atualizada: README, setup-guide, este spec com "Status: Implementado"
+- [x] Schema do banco está reconciliado (migrations 001-008 aplicadas, tudo alinhado)
+- [x] Fluxo completo roda em staging: cliente solicita → admin valida → PDF gerado → cliente paga → PDF final disponível
+- [x] 3 tipos de serviço (orçamento obra, elétrica, laudo) têm templates PDF próprios
+- [x] Trilha de validação aparece em `validations` para todo budget VALIDATED
+- [x] Dashboards (admin + cliente) mostram dados reais
+- [x] 3 cenários E2E em Playwright passando no CI (smoke + budget-with-sinapi + curva-abc + bdi + memorial, expandidos na Fase 2F)
+- [x] RLS verificada (teste cross-tenant falha como esperado)
+- [ ] Isabela ou outro engenheiro validou 1 orçamento real ponta-a-ponta *(pendente pilot)*
+- [x] Documentação atualizada: README, setup-guide, este spec com "Status: Implementado"
 
 ---
 
