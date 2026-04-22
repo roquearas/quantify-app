@@ -1,5 +1,6 @@
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { classifyCurvaAbc, type CurvaAbcClasse } from '../curvaAbc'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 })
 const fmt = (n: number | null | undefined) => (n == null ? '—' : BRL.format(Number(n)))
@@ -50,7 +51,21 @@ const styles = StyleSheet.create({
   footerLine1: { fontSize: 8, color: '#0B1D3A', textAlign: 'center' },
   footerLine2: { fontSize: 6, color: '#64748B', textAlign: 'center', marginTop: 3 },
   pageNum: { position: 'absolute', bottom: 8, right: 40, fontSize: 7, color: '#94A3B8' },
+  abcSection: { marginTop: 14, marginBottom: 14 },
+  abcRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  abcLabel: { width: 20, fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+  abcPct: { width: 42, fontSize: 9, textAlign: 'right' },
+  abcCount: { width: 60, fontSize: 8, color: '#64748B', paddingLeft: 6 },
+  abcTrack: { flex: 1, height: 6, backgroundColor: '#E2E8F0', borderRadius: 2, marginHorizontal: 6 },
+  abcFill: { height: 6, borderRadius: 2 },
+  abcValue: { width: 90, fontSize: 8, textAlign: 'right' },
 })
+
+const ABC_COLOR: Record<CurvaAbcClasse, string> = {
+  A: '#C0392B',
+  B: '#E67E22',
+  C: '#16A085',
+}
 
 const confSymbol: Record<string, string> = { HIGH: '●', MEDIUM: '●', LOW: '●' }
 const confColor: Record<string, string> = { HIGH: '#16A085', MEDIUM: '#E67E22', LOW: '#C0392B' }
@@ -111,6 +126,17 @@ export function BudgetPDF(props: BudgetPDFProps) {
   const bdi = budget.bdi_percentage ? Number(budget.bdi_percentage) : 0
   const bdiAmount = subtotal * (bdi / 100)
   const total = subtotal + bdiAmount
+
+  // Curva ABC — mesma classificação usada na UI de review (Pareto 80/95/100)
+  const classified = classifyCurvaAbc(items)
+  const abcSummary = { A: { count: 0, sum: 0 }, B: { count: 0, sum: 0 }, C: { count: 0, sum: 0 } }
+  for (const it of classified) {
+    if (it.classe_abc && it.classe_abc in abcSummary) {
+      const custo = Number(it.total_cost ?? 0)
+      abcSummary[it.classe_abc].count += 1
+      abcSummary[it.classe_abc].sum += custo
+    }
+  }
 
   const footerText = validator.crea
     ? `Validado por ${validator.name}, CREA ${validator.crea} em ${new Date(validator.when).toLocaleString('pt-BR')}`
@@ -196,6 +222,28 @@ export function BudgetPDF(props: BudgetPDFProps) {
             </View>
           </View>
         </View>
+
+        {/* Curva ABC */}
+        {subtotal > 0 && (
+          <View style={styles.abcSection} wrap={false}>
+            <Text style={styles.sectionTitle}>Composição por curva ABC</Text>
+            {(['A', 'B', 'C'] as const).map((classe) => {
+              const row = abcSummary[classe]
+              const percent = subtotal > 0 ? (row.sum / subtotal) * 100 : 0
+              return (
+                <View key={classe} style={styles.abcRow}>
+                  <Text style={[styles.abcLabel, { color: ABC_COLOR[classe] }]}>{classe}</Text>
+                  <Text style={styles.abcPct}>{percent.toFixed(1)}%</Text>
+                  <Text style={styles.abcCount}>{row.count} {row.count === 1 ? 'item' : 'itens'}</Text>
+                  <View style={styles.abcTrack}>
+                    <View style={[styles.abcFill, { width: `${percent}%`, backgroundColor: ABC_COLOR[classe] }]} />
+                  </View>
+                  <Text style={styles.abcValue}>{fmt(row.sum)}</Text>
+                </View>
+              )
+            })}
+          </View>
+        )}
 
         {/* Trilha de validações */}
         {validations.length > 0 && (

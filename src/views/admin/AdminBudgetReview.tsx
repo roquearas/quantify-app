@@ -62,6 +62,7 @@ export default function AdminBudgetReview() {
   const [editFields, setEditFields] = useState<{ quantity: string; unit_cost: string; bdi_override: string }>({ quantity: '', unit_cost: '', bdi_override: '' })
   const [busy, setBusy] = useState(false)
   const [pickerItem, setPickerItem] = useState<BudgetItem | null>(null)
+  const [filtroClasse, setFiltroClasse] = useState<CurvaAbcClasse | null>(null)
 
   async function load() {
     setLoading(true)
@@ -184,6 +185,16 @@ export default function AdminBudgetReview() {
   const pendingCount = items.length - approvedCount - rejectedCount
   const canFinalize = pendingCount === 0 || rejectedCount > 0
 
+  const classified = useMemo(() => classifyCurvaAbc(items), [items])
+  const classeByItemId = useMemo(
+    () => new Map(classified.map((c) => [c.id, c.classe_abc])),
+    [classified],
+  )
+  const itemsFiltrados = useMemo(
+    () => (filtroClasse ? items.filter((it) => classeByItemId.get(it.id) === filtroClasse) : items),
+    [items, filtroClasse, classeByItemId],
+  )
+
   return (
     <>
       <div className="page-header">
@@ -192,12 +203,21 @@ export default function AdminBudgetReview() {
             <ArrowLeft size={14} /> Voltar
           </Link>
           <h2>Revisar: {budget.name}</h2>
-          <p>{budget.projects?.name} · {items.length} itens ({approvedCount} aprovados, {rejectedCount} rejeitados, {pendingCount} pendentes)</p>
+          <p>
+            {budget.projects?.name} · {items.length} itens ({approvedCount} aprovados, {rejectedCount} rejeitados, {pendingCount} pendentes)
+            {filtroClasse && ` · filtrando classe ${filtroClasse} (${itemsFiltrados.length} visíveis)`}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={onFinalize} disabled={busy || !canFinalize}>
           <Send size={14} /> Finalizar revisão
         </button>
       </div>
+
+      <BudgetCurvaABC
+        classified={classified}
+        filtro={filtroClasse}
+        onFiltroChange={setFiltroClasse}
+      />
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <table className="data-table">
@@ -214,16 +234,37 @@ export default function AdminBudgetReview() {
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => {
+            {itemsFiltrados.map((it) => {
               const status = itemStatusMap.get(it.description)
               const isEditing = editing === it.id
               const isApproved = status === 'VALIDATED'
               const isRejected = status === 'REJECTED'
+              const classe = classeByItemId.get(it.id)
               return (
                 <tr key={it.id} style={{ opacity: isApproved ? 0.6 : 1 }}>
                   <td style={{ color: confColor[it.confidence] }}>●</td>
                   <td>
-                    <div>{it.description}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {classe && (
+                        <span
+                          title={`Classe ${classe} da curva ABC`}
+                          style={{
+                            display: 'inline-block',
+                            minWidth: 18,
+                            padding: '1px 5px',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: '#fff',
+                            background: CURVA_ABC_COLOR[classe],
+                            borderRadius: 3,
+                            textAlign: 'center',
+                          }}
+                        >
+                          {classe}
+                        </span>
+                      )}
+                      <span>{it.description}</span>
+                    </div>
                     {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
                     {it.origem !== 'MANUAL' && it.sinapi_codigo && (
                       <div style={{ fontSize: 11, color: '#2980B9', display: 'inline-flex', gap: 4, alignItems: 'center' }}>
