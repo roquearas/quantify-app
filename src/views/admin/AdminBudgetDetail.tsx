@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, ClipboardCheck, Send, FileDown } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Send, FileDown, BarChart3 } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
 
 type BudgetStatus = 'AI_DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'REJECTED'
@@ -89,6 +89,11 @@ export default function AdminBudgetDetail() {
           <p>{budget.projects?.name} · {budget.projects?.client_name || '—'} · v{budget.version} · {statusLabel[budget.status]}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {items.length > 0 && (
+            <Link href={`/admin/orcamentos/${budget.id}/curva-abc`} className="btn btn-outline">
+              <BarChart3 size={14} /> Curva ABC
+            </Link>
+          )}
           {budget.status === 'AI_DRAFT' && (
             <button className="btn btn-primary" onClick={submitForReview} disabled={submitting}>
               <Send size={14} /> {submitting ? 'Enviando...' : 'Enviar para revisão'}
