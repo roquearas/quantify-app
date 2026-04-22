@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Database, Search, X } from 'lucide-react'
+import { Database, Search, Sparkles, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   formatSinapiPrice,
@@ -11,6 +11,12 @@ import {
   type SinapiSearchResult,
   type SinapiSearchType,
 } from '../lib/sinapi/search'
+import {
+  formatScorePercent,
+  scoreConfidence,
+  suggestSinapi,
+  type SinapiSuggestion,
+} from '../lib/ai/suggestSinapi'
 
 interface Props {
   isOpen: boolean
@@ -32,6 +38,8 @@ export function SinapiPicker({ isOpen, defaultQuery = '', onClose, onSelect }: P
   const [error, setError] = useState<string | null>(null)
   const [updateCost, setUpdateCost] = useState(true)
   const [linking, setLinking] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<SinapiSuggestion[]>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const searchAbort = useRef<AbortController | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -54,6 +62,36 @@ export function SinapiPicker({ isOpen, defaultQuery = '', onClose, onSelect }: P
   useEffect(() => {
     if (isOpen) setQuery(defaultQuery)
   }, [isOpen, defaultQuery])
+
+  // Fase 2F: fetch AI fuzzy suggestions once per open+filter (uses item description)
+  useEffect(() => {
+    if (!isOpen || !filter || !defaultQuery.trim()) {
+      setSuggestions([])
+      return
+    }
+    let cancelled = false
+    setLoadingSuggestions(true)
+    suggestSinapi(supabase, {
+      description: defaultQuery,
+      estado: filter.estado,
+      mesReferencia: filter.mesReferencia,
+      desonerado: filter.desonerado,
+      limit: 5,
+    })
+      .then((res) => {
+        if (!cancelled) setSuggestions(res)
+      })
+      .catch(() => {
+        // não derruba o picker; só oculta sugestões
+        if (!cancelled) setSuggestions([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSuggestions(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, filter, defaultQuery])
 
   // Debounced search
   useEffect(() => {
@@ -125,6 +163,37 @@ export function SinapiPicker({ isOpen, defaultQuery = '', onClose, onSelect }: P
       }
     },
     [onSelect, updateCost],
+  )
+
+  // Fase 2F: ao aceitar uma sugestão, busca o registro completo via searchSinapi
+  // (linkBudgetItemSinapi exige o id do registro — a sugestão só traz codigo)
+  const handleAcceptSuggestion = useCallback(
+    async (s: SinapiSuggestion) => {
+      if (!filter) return
+      setLinking(`suggestion-${s.codigo}`)
+      setError(null)
+      try {
+        const hits = await searchSinapi(supabase, {
+          query: s.codigo,
+          estado: filter.estado,
+          mesReferencia: filter.mesReferencia,
+          desonerado: filter.desonerado,
+          tipo: 'composicao',
+          limit: 5,
+        })
+        const match = hits.find((h) => h.codigo === s.codigo && h.tipo === 'COMPOSICAO')
+        if (!match) {
+          setError(`Composição ${s.codigo} não encontrada no filtro atual.`)
+          return
+        }
+        await onSelect(match, updateCost)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLinking(null)
+      }
+    },
+    [filter, onSelect, updateCost],
   )
 
   const content = useMemo(() => {
@@ -239,6 +308,99 @@ export function SinapiPicker({ isOpen, defaultQuery = '', onClose, onSelect }: P
           </div>
         )}
 
+        {/* Fase 2F: sugestões AI por similaridade (pg_trgm) */}
+        {(loadingSuggestions || suggestions.length > 0) && (
+          <div
+            data-testid="sinapi-suggestions"
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              border: '1px dashed #B388EB',
+              borderRadius: 4,
+              background: '#FAF6FF',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#5B3A8A',
+                marginBottom: 6,
+              }}
+            >
+              <Sparkles size={14} />
+              Sugestões IA (fuzzy-match)
+              {loadingSuggestions && (
+                <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>
+                  · buscando...
+                </span>
+              )}
+            </div>
+            {!loadingSuggestions && suggestions.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Nenhuma sugestão acima do threshold.
+              </div>
+            )}
+            {suggestions.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {suggestions.map((s) => {
+                  const conf = scoreConfidence(s.score)
+                  const confBg =
+                    conf === 'high' ? '#16A085' : conf === 'medium' ? '#E67E22' : '#95A5A6'
+                  return (
+                    <div
+                      key={s.codigo}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '80px 60px 1fr 80px 100px 90px',
+                        gap: 8,
+                        alignItems: 'center',
+                        fontSize: 12,
+                        padding: '4px 6px',
+                        background: '#fff',
+                        borderRadius: 3,
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: confBg,
+                          color: '#fff',
+                          padding: '2px 6px',
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          textAlign: 'center',
+                          fontSize: 11,
+                        }}
+                      >
+                        {formatScorePercent(s.score)}
+                      </span>
+                      <span style={{ fontFamily: 'monospace' }}>{s.codigo}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.descricao}
+                      </span>
+                      <span>{s.unidade}</span>
+                      <span style={{ textAlign: 'right' }}>
+                        {formatSinapiPrice(s.preco_unitario)}
+                      </span>
+                      <button
+                        className="btn btn-xs btn-primary"
+                        onClick={() => handleAcceptSuggestion(s)}
+                        disabled={linking !== null}
+                      >
+                        {linking === `suggestion-${s.codigo}` ? 'Linkando...' : 'Aceitar'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div
           style={{
             border: '1px solid var(--border)',
@@ -322,6 +484,9 @@ export function SinapiPicker({ isOpen, defaultQuery = '', onClose, onSelect }: P
     linking,
     filterLabel,
     handleSelect,
+    loadingSuggestions,
+    suggestions,
+    handleAcceptSuggestion,
   ])
 
   if (!isOpen) return null

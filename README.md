@@ -46,42 +46,41 @@ npm run test:e2e:ui   # Playwright UI mode
 
 | Sub-plano | Status |
 |---|---|
-| 2A — Schema SINAPI + origem no item | ✅ |
-| 2B — Picker SINAPI + search fuzzy | ✅ |
-| 2C — Curva ABC visível no review | ✅ |
-| 2D — BDI configurável (global + por item) | ✅ |
-| 2E — Memorial descritivo (markdown) | ✅ |
-| 2F — AI fuzzy-match em batch + E2E + docs | ✅ |
+| 2A — Tabela SINAPI + import XLSX | ✅ |
+| 2B — Picker + link HITL | ✅ |
+| 2C — Curva ABC visual | ✅ |
+| 2D — Calculadora BDI (TCU 2622/2013) | ✅ |
+| 2E — Memorial descritivo no PDF | ✅ |
+| 2F — Fuzzy-match AI + E2E + docs | ✅ |
 
 Ver [docs/plans/](docs/plans/) e [docs/specs/](docs/specs/) para detalhes.
 
-## Engine de orçamento
+## Como funciona o engine de orçamento
 
-A Quantify transforma uma solicitação de serviço num PDF assinado em 6 passos:
+O fluxo end-to-end de um orçamento na Quantify:
 
-```
-service_request → project → budget (AI_DRAFT)
-                              ↓
-                    review HITL item-por-item
-                              ↓
-   (opcional) linkar SINAPI via picker ou sugestão automática
-                              ↓
-              Curva ABC + BDI (global ou por item)
-                              ↓
-                memorial descritivo (markdown)
-                              ↓
-                  finalizar → VALIDATED
-                              ↓
-                     PDF assinado (SHA-256)
-```
+1. **Input** — cliente descreve a obra (tipo, área, localização, nível de acabamento)
+2. **AI draft** — agente gera `budget_items` em `AI_DRAFT`, populando quando possível:
+   - `suggested_sinapi_codigo` + `suggested_sinapi_score` via fuzzy-match pg_trgm
+   - `confidence` (HIGH/MEDIUM/LOW) por item
+3. **HITL review** (`/admin/orcamentos/:id/revisar`):
+   - **Curva ABC** (Pareto 80/15/5) destaca itens de maior impacto
+   - Reviewer vê **sugestões IA** ao abrir o `SinapiPicker`
+   - Pode aceitar, escolher outra composição, editar quantidade/custo, aprovar/rejeitar
+   - BDI override por item (TCU 2622/2013: `[(1+DI+R)(1+L)]/(1-I) - 1`)
+4. **Memorial descritivo** em markdown — materiais, técnicas, normas
+5. **Finalização** → status `VALIDATED` com trilha completa em `validations`
+6. **PDF assinado** via `/api/budgets/:id/pdf` — com hash SHA-256 do conteúdo
 
-Detalhes:
+**Integridade**: cada PDF inclui `X-Budget-Hash` no header + anexa o memorial,
+a curva ABC, o BDI detalhado (se TCU) e a trilha de aprovações. O hash permite
+ao cliente validar que o documento não foi adulterado.
 
-- **SINAPI**: ~12.000 insumos + ~5.500 composições por UF/mês, buscáveis por `pg_trgm` no picker. Aceite grava snapshot em `budget_items.sinapi_snapshot_jsonb`. Ver [sinapi-import-guide.md](docs/sinapi-import-guide.md).
-- **Curva ABC**: classificação Pareto (A = 80% / B = 15% / C = 5%) renderizada em bar chart no review e no PDF. Filtrável por classe.
-- **BDI**: percentual global no orçamento + override opcional por item (`bdi_override_percent`). Total do budget mostra BDI médio ponderado + asterisco quando há overrides.
-- **Memorial descritivo**: markdown livre (`budgets.memorial_md`) renderizado antes da tabela de itens no PDF final.
-- **Engineer-first**: nada sai sem `VALIDATED`, toda mudança vira linha em `validations`.
+**AI + auditabilidade**: a IA nunca decide sozinha. Toda vinculação SINAPI,
+todo override de BDI e toda mudança de quantidade passa pela validação do
+engenheiro responsável (CREA registrado no PDF).
+
+Mais detalhes em [docs/sinapi-import-guide.md](docs/sinapi-import-guide.md).
 
 ## Serviços ofertados (catálogo)
 
@@ -106,7 +105,9 @@ Cada serviço tem multiplicadores configuráveis (porte, urgência, tipologia) p
 
 ## Documentação
 
-- [Spec Fase 1](docs/specs/2026-04-18-fase1-fundacao-design.md) — design completo
+- [Spec Fase 1](docs/specs/2026-04-18-fase1-fundacao-design.md) — design Fase 1
+- [Spec Fase 2](docs/specs/2026-04-18-fase2-engine-orcamento-design.md) — design Fase 2 (engine de orçamento)
+- [Guia SINAPI](docs/sinapi-import-guide.md) — import + fuzzy-match + picker HITL
 - [Planos](docs/plans/) — decomposição em sub-planos executáveis
 - [Blueprints](docs/reference/) — visão de produto v1/v2
 - [Setup guide](docs/setup-guide.md) — Supabase + Vercel

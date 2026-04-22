@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { ArrowLeft, ClipboardCheck, Send, FileDown, BarChart3 } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
 import { MemorialEditor } from '../../components/MemorialEditor'
+import { applyBdi } from '../../lib/bdi'
 
 type BudgetStatus = 'AI_DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'REJECTED'
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
@@ -63,6 +64,15 @@ export default function AdminBudgetDetail() {
   }
 
   useEffect(() => { if (id) load() }, [id])
+
+  const totals = useMemo(
+    () => applyBdi(items, budget?.bdi_percentage ?? 0),
+    [items, budget?.bdi_percentage],
+  )
+  const hasOverrides = useMemo(
+    () => items.some((it) => it.bdi_override_percent != null),
+    [items],
+  )
 
   async function submitForReview() {
     if (!budget) return
