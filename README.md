@@ -1,73 +1,74 @@
-# React + TypeScript + Vite
+# Quantify — Engenharia Inteligente
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plataforma B2B brasileira para orçamentos e projetos de engenharia. IA assistida por engenheiro humano: nenhuma entrega sai sem validação técnica.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Framework**: Next.js 15 (App Router, Turbopack) + React 19
+- **Linguagem**: TypeScript (strict)
+- **Banco**: PostgreSQL via Supabase (tipos gerados + RLS)
+- **Auth**: Supabase Auth (SSR)
+- **Storage**: Supabase Storage (bucket `project-documents`)
+- **PDF**: `@react-pdf/renderer`
+- **Pagamento**: Mercado Pago (one-time, pay-per-service)
+- **Deploy**: Vercel
 
-## React Compiler
+## Arquitetura
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Multi-tenant** por `company_id` com RLS no Postgres
+- **Roles**: `ADMIN | MANAGER | ENGINEER | ESTIMATOR | VIEWER | CLIENT`
+- **Fluxo HITL**: `AI_DRAFT → IN_REVIEW → VALIDATED / REJECTED`
+- **Cobrança**: pay-per-service (não SaaS), one-time payment via Mercado Pago
 
-## Expanding the ESLint configuration
+## Scripts
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev           # Dev com Turbopack
+npm run build         # Build de produção
+npm run start         # Servidor de produção
+npm run lint          # Lint
+npm run test:e2e      # Smoke tests Playwright
+npm run test:e2e:ui   # Playwright UI mode
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Estado da Fase 1 (fundação)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Sub-plano | Status |
+|---|---|
+| 1A — Reconciliação de schema + trigger | ✅ |
+| 1B — HITL workflow + review UI | ✅ |
+| 1C — Gerador de PDF | ✅ |
+| 1D — Documentos por projeto | ✅ |
+| 1E — Dashboards reais | ✅ |
+| 1F — Smoke tests + polimento | ✅ |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Ver [docs/plans/](docs/plans/) e [docs/specs/](docs/specs/) para detalhes.
+
+## Serviços ofertados (catálogo)
+
+7 serviços de engenharia prontos pra comercialização:
+1. Levantamento Quantitativo (por m²)
+2. Orçamento Paramétrico (por projeto)
+3. Composição de CPU (por CPU)
+4. Cotação Eletrônica (por lote)
+5. Análise de BDI (por orçamento)
+6. Assessoria em Licitações (por edital)
+7. Elaboração de Propostas (por proposta)
+
+Cada serviço tem multiplicadores configuráveis (porte, urgência, tipologia) para estimativa ao vivo.
+
+## Setup local
+
+1. Clone o repo + `npm install`
+2. Copie `.env.example` para `.env.local` e preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. `npm run dev` → http://localhost:3000
+4. `npm run test:e2e:install` pra instalar browser do Playwright (primeira vez)
+5. `npm run test:e2e` para rodar smoke tests
+
+## Documentação
+
+- [Spec Fase 1](docs/specs/2026-04-18-fase1-fundacao-design.md) — design completo
+- [Planos](docs/plans/) — decomposição em sub-planos executáveis
+- [Blueprints](docs/reference/) — visão de produto v1/v2
+- [Setup guide](docs/setup-guide.md) — Supabase + Vercel
+- [Schema atual](supabase/current-schema-inspection.md) — snapshot do banco
