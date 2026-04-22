@@ -1,10 +1,12 @@
 'use client'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, ClipboardCheck, Send, FileDown, BarChart3 } from 'lucide-react'
 import { formatBRL } from '../../lib/pricingEngine'
+import { BdiEditor } from '../../components/BdiEditor'
+import { applyBdi, type BdiBreakdown } from '../../lib/bdi'
 
 type BudgetStatus = 'AI_DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'REJECTED'
 type Confidence = 'HIGH' | 'MEDIUM' | 'LOW'
@@ -17,6 +19,7 @@ interface BudgetItem {
   quantity: number
   unit_cost: number | null
   total_cost: number | null
+  bdi_override_percent: number | null
   confidence: Confidence
   origin: string
   category: string | null
@@ -31,6 +34,7 @@ interface Budget {
   price_base: string
   total_cost: number | null
   bdi_percentage: number | null
+  bdi_breakdown: unknown
   project_id: string
   projects: { name: string; client_name: string | null } | null
 }
@@ -51,7 +55,7 @@ export default function AdminBudgetDetail() {
   async function load() {
     setLoading(true)
     const [bRes, iRes] = await Promise.all([
-      supabase.from('budgets').select('id, name, version, status, type, price_base, total_cost, bdi_percentage, project_id, projects!inner(name, client_name)').eq('id', id).single(),
+      supabase.from('budgets').select('id, name, version, status, type, price_base, total_cost, bdi_percentage, bdi_breakdown, project_id, projects!inner(name, client_name)').eq('id', id).single(),
       supabase.from('budget_items').select('*').eq('budget_id', id).order('category').order('description'),
     ])
     setBudget((bRes.data as unknown as Budget) || null)
@@ -71,12 +75,30 @@ export default function AdminBudgetDetail() {
     await load()
   }
 
+  async function saveBdi({ bdiPercent, breakdown }: { bdiPercent: number | null; breakdown: BdiBreakdown | null }) {
+    if (!budget) return
+    const { error } = await supabase
+      .from('budgets')
+      .update({
+        bdi_percentage: bdiPercent,
+        bdi_breakdown: breakdown as unknown as never,
+      })
+      .eq('id', budget.id)
+    if (error) { alert('Erro ao salvar BDI: ' + error.message); return }
+    await load()
+  }
+
+  const totals = useMemo(() => applyBdi(items, budget?.bdi_percentage ?? 0), [items, budget?.bdi_percentage])
+
+  const hasOverrides = useMemo(
+    () => items.some((it) => it.bdi_override_percent != null),
+    [items],
+  )
+
   if (loading) return <div className="loading">Carregando...</div>
   if (!budget) return <div className="empty-state"><h3>Orçamento não encontrado</h3></div>
 
-  const subtotal = items.reduce((s, it) => s + Number(it.total_cost ?? 0), 0)
-  const bdiMult = budget.bdi_percentage ? 1 + Number(budget.bdi_percentage) / 100 : 1
-  const total = subtotal * bdiMult
+  const bdiEditable = budget.status === 'AI_DRAFT' || budget.status === 'IN_REVIEW'
 
   return (
     <>
@@ -117,6 +139,15 @@ export default function AdminBudgetDetail() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 20 }}>
+        <BdiEditor
+          bdiPercent={budget.bdi_percentage}
+          breakdown={budget.bdi_breakdown}
+          onSave={saveBdi}
+          readOnly={!bdiEditable}
+        />
+      </div>
+
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-header" style={{ padding: 16 }}><h3>Itens ({items.length})</h3></div>
         <table className="data-table">
@@ -128,34 +159,62 @@ export default function AdminBudgetDetail() {
               <th style={{ textAlign: 'right' }}>Qtde</th>
               <th style={{ textAlign: 'right' }}>Custo unit.</th>
               <th style={{ textAlign: 'right' }}>Total</th>
+              <th style={{ textAlign: 'right' }}>BDI</th>
               <th>Confiança</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
-              <tr key={it.id}>
-                <td>{it.code || '—'}</td>
-                <td>
-                  <div>{it.description}</div>
-                  {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
-                </td>
-                <td>{it.unit}</td>
-                <td style={{ textAlign: 'right' }}>{Number(it.quantity).toLocaleString('pt-BR')}</td>
-                <td style={{ textAlign: 'right' }}>{it.unit_cost != null ? formatBRL(Number(it.unit_cost)) : '—'}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.total_cost != null ? formatBRL(Number(it.total_cost)) : '—'}</td>
-                <td style={{ color: confColor[it.confidence] }}>{confLabel[it.confidence]}</td>
-              </tr>
-            ))}
+            {items.map((it) => {
+              const usesOverride = it.bdi_override_percent != null
+              const effectiveBdi = usesOverride ? Number(it.bdi_override_percent) : Number(budget.bdi_percentage ?? 0)
+              return (
+                <tr key={it.id}>
+                  <td>{it.code || '—'}</td>
+                  <td>
+                    <div>{it.description}</div>
+                    {it.category && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{it.category}</div>}
+                  </td>
+                  <td>{it.unit}</td>
+                  <td style={{ textAlign: 'right' }}>{Number(it.quantity).toLocaleString('pt-BR')}</td>
+                  <td style={{ textAlign: 'right' }}>{it.unit_cost != null ? formatBRL(Number(it.unit_cost)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.total_cost != null ? formatBRL(Number(it.total_cost)) : '—'}</td>
+                  <td style={{ textAlign: 'right', fontSize: 12, color: usesOverride ? 'var(--accent-warm)' : 'var(--text-muted)' }}>
+                    {effectiveBdi.toFixed(2)}%{usesOverride ? ' *' : ''}
+                  </td>
+                  <td style={{ color: confColor[it.confidence] }}>{confLabel[it.confidence]}</td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
-            <tr><td colSpan={5} style={{ textAlign: 'right' }}>Subtotal</td><td style={{ textAlign: 'right', fontWeight: 600 }}>{formatBRL(subtotal)}</td><td /></tr>
-            {budget.bdi_percentage != null && (
-              <tr><td colSpan={5} style={{ textAlign: 'right' }}>BDI ({Number(budget.bdi_percentage).toFixed(1)}%)</td><td style={{ textAlign: 'right' }}>{formatBRL(total - subtotal)}</td><td /></tr>
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}>Subtotal (sem BDI)</td>
+              <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatBRL(totals.subtotal)}</td>
+              <td colSpan={2} />
+            </tr>
+            {(budget.bdi_percentage != null || hasOverrides) && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'right' }}>
+                  BDI aplicado ({totals.bdiEffectivePercent.toFixed(2)}% médio
+                  {hasOverrides ? ' — com overrides' : ''})
+                </td>
+                <td style={{ textAlign: 'right' }}>{formatBRL(totals.bdiAmount)}</td>
+                <td colSpan={2} />
+              </tr>
             )}
-            <tr><td colSpan={5} style={{ textAlign: 'right' }}><strong>Total</strong></td><td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-warm)' }}><strong>{formatBRL(total)}</strong></td><td /></tr>
+            <tr>
+              <td colSpan={5} style={{ textAlign: 'right' }}><strong>Total com BDI</strong></td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-warm)' }}><strong>{formatBRL(totals.total)}</strong></td>
+              <td colSpan={2} />
+            </tr>
           </tfoot>
         </table>
       </div>
+      {hasOverrides && (
+        <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+          * item com BDI override (sobrescreve o BDI global do orçamento).
+        </p>
+      )}
     </>
   )
 }

@@ -232,6 +232,7 @@ export type Database = {
       }
       budgets: {
         Row: {
+          bdi_breakdown: Json | null
           bdi_percentage: number | null
           confidence: number | null
           created_at: string
@@ -248,6 +249,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          bdi_breakdown?: Json | null
           bdi_percentage?: number | null
           confidence?: number | null
           created_at?: string
@@ -264,6 +266,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          bdi_breakdown?: Json | null
           bdi_percentage?: number | null
           confidence?: number | null
           created_at?: string
